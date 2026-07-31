@@ -35,3 +35,6 @@ export const CloseLineIcon = createIcon("close-line");
 export const TaskIcon = createIcon("task-icon");
 export const ArrowUpIcon = createIcon("arrow-up");
 export const ArrowDownIcon = createIcon("arrow-down");
+export const PlugInIcon = createIcon("plug-in");
+export const BoltIcon = createIcon("bolt");
+export const MoreDotIcon = createIcon("more-dot");

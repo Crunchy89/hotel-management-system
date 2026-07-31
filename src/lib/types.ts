@@ -1,5 +1,76 @@
 export type RoomStatus = "available" | "occupied" | "cleaning" | "maintenance";
+export type CleaningStatus = "pending" | "in_progress" | "clean" | "inspected";
+
+export type OccupancyStatus = "occupied" | "check_in_only" | "empty";
+
+export interface HousekeepingRecord {
+  room_id: string;
+  date: string;
+  cleaning_status: CleaningStatus;
+  note: string;
+  updated_at: string;
+}
+
+export interface UpdateHousekeepingInput {
+  room_id: string;
+  date: string;
+  cleaning_status?: CleaningStatus;
+  note?: string;
+}
+
+export interface RatePlan {
+  id: string;
+  slug: string;
+  label: string;
+  room_type_slug: string;
+  sort_order: number;
+  channels: string[];
+  base_rate: number;
+}
+
+export interface RateEntry {
+  rate_plan_id: string;
+  date: string;
+  rate: number;
+  availability: number;
+  updated_at: string;
+}
+
+export interface BulkRateUpdateInput {
+  rate_plan_ids: string[];
+  field: "rate" | "availability";
+  value: number;
+  date_from: string;
+  date_to: string;
+  /** 0=Sun … 6=Sat */
+  weekdays: number[];
+}
+
+export interface UpsertRateEntryInput {
+  rate_plan_id: string;
+  date: string;
+  rate?: number;
+  availability?: number;
+}
 export type RoomType = "standard" | "deluxe" | "suite";
+
+export interface RoomTypeRecord {
+  id: string;
+  slug: string;
+  label: string;
+  sort_order: number;
+}
+
+export interface CreateRoomTypeInput {
+  label: string;
+  sort_order?: number;
+}
+
+export interface UpdateRoomTypeInput {
+  id: string;
+  label: string;
+  sort_order?: number;
+}
 export type ReservationStatus =
   | "booked"
   | "checked_in"
@@ -22,16 +93,38 @@ export interface Guest {
   email: string;
   phone: string;
   id_document: string;
+  organization?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  country?: string;
+  postal_code?: string;
+  id_document_type?: string;
 }
 
 export interface Reservation {
   id: string;
   guest_id: string;
+  /** Empty when the booking is unallocated to a specific room. */
   room_id: string;
+  /** Room type slug for unallocated bookings. */
+  room_type?: string;
   check_in: string;
   check_out: string;
   status: ReservationStatus | string;
   notes: string;
+  guest_comments?: string;
+  adults?: number;
+  children?: number;
+  infants?: number;
+  room_amount?: number;
+  extra_person?: number;
+  discount?: number;
+  amount_paid?: number;
+  hold_rate?: boolean;
+  booking_source?: string;
+  arrival_time?: string;
+  reference?: string;
   created_at: string;
   updated_at: string;
   guest_name?: string;
@@ -56,6 +149,13 @@ export interface CreateGuestInput {
   email: string;
   phone: string;
   id_document: string;
+  organization?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  country?: string;
+  postal_code?: string;
+  id_document_type?: string;
 }
 
 export interface UpdateGuestInput extends CreateGuestInput {
@@ -63,11 +163,25 @@ export interface UpdateGuestInput extends CreateGuestInput {
 }
 
 export interface CreateReservationInput {
-  guest_id: string;
+  guest_id?: string;
+  guest?: CreateGuestInput;
   room_id: string;
+  room_type?: string;
   check_in: string;
   check_out: string;
   notes: string;
+  guest_comments?: string;
+  adults?: number;
+  children?: number;
+  infants?: number;
+  room_amount?: number;
+  extra_person?: number;
+  discount?: number;
+  amount_paid?: number;
+  hold_rate?: boolean;
+  booking_source?: string;
+  arrival_time?: string;
+  reference?: string;
 }
 
 export interface DashboardStats {
@@ -77,4 +191,65 @@ export interface DashboardStats {
   arrivals_today: number;
   departures_today: number;
   booked_active: number;
+}
+
+export type ChannelStatus = "active" | "inactive";
+
+export interface Channel {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  status: ChannelStatus;
+  sync_days: number;
+  mapped_count: number;
+  is_connected: boolean;
+  sort_order: number;
+  has_warning?: boolean;
+}
+
+export interface UpdateChannelInput {
+  id: string;
+  status?: ChannelStatus;
+  mapped_count?: number;
+  is_connected?: boolean;
+}
+
+export type YieldRuleType =
+  | "min_stay"
+  | "max_stay"
+  | "stop_sell"
+  | "closed_to_arrival"
+  | "closed_to_departure"
+  | "rate_adjustment";
+
+export type YieldRuleStatus = "active" | "inactive";
+
+export interface YieldRule {
+  id: string;
+  name: string;
+  rule_type: YieldRuleType;
+  room_type_slug: string;
+  date_from: string;
+  date_to: string;
+  value: number;
+  status: YieldRuleStatus;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateYieldRuleInput {
+  name: string;
+  rule_type: YieldRuleType;
+  room_type_slug: string;
+  date_from: string;
+  date_to: string;
+  value: number;
+  status?: YieldRuleStatus;
+  priority?: number;
+}
+
+export interface UpdateYieldRuleInput extends CreateYieldRuleInput {
+  id: string;
 }

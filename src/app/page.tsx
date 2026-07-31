@@ -28,7 +28,8 @@ import type { Reservation } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
 
 export default function DashboardPage() {
-  const { rooms, reservations, error, reload, mutate } = useHotelData();
+  const { rooms, reservations, guests, room_types, error, reload, mutate } =
+    useHotelData();
   const [selected, setSelected] = useState<Reservation | null>(null);
   const detailModal = useModal();
 
@@ -179,7 +180,9 @@ export default function DashboardPage() {
         isOpen={detailModal.isOpen}
         onClose={detailModal.closeModal}
         reservation={selected}
+        guest={guests.find((g) => g.id === selected?.guest_id) ?? null}
         rooms={rooms}
+        roomTypes={room_types}
         onAction={onAction}
       />
     </div>

@@ -1,14 +1,28 @@
 import * as store from "@/lib/store";
 import type {
+  BulkRateUpdateInput,
+  Channel,
   CreateGuestInput,
   CreateReservationInput,
   CreateRoomInput,
+  CreateRoomTypeInput,
+  CreateYieldRuleInput,
   DashboardStats,
   Guest,
+  HousekeepingRecord,
+  RateEntry,
+  RatePlan,
   Reservation,
   Room,
+  RoomTypeRecord,
+  UpdateChannelInput,
   UpdateGuestInput,
+  UpdateHousekeepingInput,
+  UpsertRateEntryInput,
   UpdateRoomInput,
+  UpdateRoomTypeInput,
+  UpdateYieldRuleInput,
+  YieldRule,
 } from "@/lib/types";
 
 function asPromise<T>(fn: () => T): Promise<T> {
@@ -27,6 +41,14 @@ export const api = {
     asPromise(() => store.updateRoom(input)),
   setRoomStatus: (id: string, status: string): Promise<Room> =>
     asPromise(() => store.setRoomStatus(id, status)),
+  listRoomTypes: (): Promise<RoomTypeRecord[]> =>
+    asPromise(() => store.listRoomTypes()),
+  createRoomType: (input: CreateRoomTypeInput): Promise<RoomTypeRecord> =>
+    asPromise(() => store.createRoomType(input)),
+  updateRoomType: (input: UpdateRoomTypeInput): Promise<RoomTypeRecord> =>
+    asPromise(() => store.updateRoomType(input)),
+  deleteRoomType: (id: string): Promise<void> =>
+    asPromise(() => store.deleteRoomType(id)),
   listGuests: (): Promise<Guest[]> => asPromise(() => store.listGuests()),
   getGuest: (id: string): Promise<Guest> => asPromise(() => store.getGuest(id)),
   createGuest: (input: CreateGuestInput): Promise<Guest> =>
@@ -41,6 +63,33 @@ export const api = {
     asPromise(() => store.cancelReservation(id)),
   checkIn: (id: string): Promise<Reservation> => asPromise(() => store.checkIn(id)),
   checkOut: (id: string): Promise<Reservation> => asPromise(() => store.checkOut(id)),
+  listHousekeeping: (date?: string): Promise<HousekeepingRecord[]> =>
+    asPromise(() => store.listHousekeeping(date)),
+  upsertHousekeeping: (input: UpdateHousekeepingInput): Promise<HousekeepingRecord> =>
+    asPromise(() => store.upsertHousekeeping(input)),
+  listRatePlans: (roomTypeSlug?: string): Promise<RatePlan[]> =>
+    asPromise(() => store.listRatePlans(roomTypeSlug)),
+  listRateEntries: (from?: string, to?: string): Promise<RateEntry[]> =>
+    asPromise(() => store.listRateEntries(from, to)),
+  upsertRateEntry: (input: UpsertRateEntryInput): Promise<RateEntry> =>
+    asPromise(() => store.upsertRateEntry(input)),
+  bulkUpdateRates: (input: BulkRateUpdateInput): Promise<number> =>
+    asPromise(() => store.bulkUpdateRates(input)),
+  listChannels: (): Promise<Channel[]> => asPromise(() => store.listChannels()),
+  updateChannel: (input: UpdateChannelInput): Promise<Channel> =>
+    asPromise(() => store.updateChannel(input)),
+  reorderChannels: (orderedIds: string[]): Promise<Channel[]> =>
+    asPromise(() => store.reorderChannels(orderedIds)),
+  listYieldRules: (): Promise<YieldRule[]> =>
+    asPromise(() => store.listYieldRules()),
+  createYieldRule: (input: CreateYieldRuleInput): Promise<YieldRule> =>
+    asPromise(() => store.createYieldRule(input)),
+  updateYieldRule: (input: UpdateYieldRuleInput): Promise<YieldRule> =>
+    asPromise(() => store.updateYieldRule(input)),
+  deleteYieldRule: (id: string): Promise<void> =>
+    asPromise(() => store.deleteYieldRule(id)),
+  toggleYieldRule: (id: string): Promise<YieldRule> =>
+    asPromise(() => store.toggleYieldRule(id)),
   getDashboardStats: (): Promise<DashboardStats> =>
     asPromise(() => store.getDashboardStats()),
 };

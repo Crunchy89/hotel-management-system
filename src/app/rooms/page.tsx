@@ -32,7 +32,7 @@ const emptyForm = {
 };
 
 export default function RoomsPage() {
-  const { rooms, loading, error, mutate } = useHotelData();
+  const { rooms, room_types, loading, error, mutate } = useHotelData();
   const [editing, setEditing] = useState<Room | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -137,8 +137,9 @@ export default function RoomsPage() {
                   >
                     {room.number}
                   </TableCell>
-                  <TableCell className={`${bodyCell} capitalize`}>
-                    {room.type}
+                  <TableCell className={bodyCell}>
+                    {room_types.find((t) => t.slug === room.type)?.label ??
+                      room.type}
                   </TableCell>
                   <TableCell className={`${bodyCell} tabular-nums`}>
                     {room.floor}
@@ -218,11 +219,11 @@ export default function RoomsPage() {
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
               >
-                <option value="standard">Standard</option>
-                <option value="twin">Twin</option>
-                <option value="deluxe">Deluxe</option>
-                <option value="suite">Suite</option>
-                <option value="family">Family</option>
+                {room_types.map((type) => (
+                  <option key={type.id} value={type.slug}>
+                    {type.label}
+                  </option>
+                ))}
               </select>
             </Field>
             <Field label="Floor">

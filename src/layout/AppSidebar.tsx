@@ -12,6 +12,10 @@ import {
   HorizontaLDots,
   ListIcon,
   PieChartIcon,
+  TaskIcon,
+  DollarLineIcon,
+  PlugInIcon,
+  BoltIcon,
 } from "@/icons";
 
 type NavItem = {
@@ -39,11 +43,22 @@ const navSections: NavSection[] = [
   },
   {
     title: "Property",
-    items: [{ icon: <BoxCubeIcon />, name: "Rooms", path: "/rooms" }],
+    items: [
+      { icon: <BoxCubeIcon />, name: "Rooms", path: "/rooms" },
+      { icon: <TaskIcon />, name: "Housekeeping", path: "/housekeeping" },
+      { icon: <DollarLineIcon />, name: "Rooms & Prices", path: "/rates" },
+    ],
   },
   {
     title: "People",
     items: [{ icon: <GroupIcon />, name: "Guests", path: "/guests" }],
+  },
+  {
+    title: "Distribution",
+    items: [
+      { icon: <PlugInIcon />, name: "Channels", path: "/channels" },
+      { icon: <BoltIcon />, name: "Yield Rules", path: "/yield-rules" },
+    ],
   },
   {
     title: "Business",

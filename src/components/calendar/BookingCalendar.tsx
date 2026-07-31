@@ -12,18 +12,20 @@ import type {
 } from "@fullcalendar/core";
 import PageHeader from "@/components/common/PageHeader";
 import TapeChart from "@/components/calendar/TapeChart";
+import RoomTypeDialog from "@/components/calendar/RoomTypeDialog";
 import ReservationDetailDialog, {
   type ReservationAction,
 } from "@/components/reservations/ReservationDetailDialog";
 import ReservationDialog, {
-  type ReservationFormValues,
+  defaultReservationForm,
 } from "@/components/reservations/ReservationDialog";
+import { formToCreateInput } from "@/components/reservations/reservationFormUtils";
 import { Alert } from "@/components/form";
 import Button from "@/components/ui/button/Button";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
 import { addDays, formatDate, isActive, todayISO } from "@/lib/metrics";
-import type { Reservation, Room } from "@/lib/types";
+import type { Reservation, Room, RoomTypeRecord } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
 
 const RANGES = [7, 14, 30];
@@ -53,18 +55,22 @@ function renderEventContent(eventInfo: EventContentArg) {
 }
 
 const BookingCalendar: React.FC = () => {
-  const { reservations, guests, rooms, error, mutate } = useHotelData();
+  const { reservations, guests, rooms, room_types, error, mutate } = useHotelData();
 
   const [view, setView] = useState<"timeline" | "month">("timeline");
   const [days, setDays] = useState(14);
   const [start, setStart] = useState(() => addDays(todayISO(), -2));
 
   const [selected, setSelected] = useState<Reservation | null>(null);
-  const [draft, setDraft] = useState<ReservationFormValues | null>(null);
+  const [draft, setDraft] = useState<ReturnType<typeof defaultReservationForm> | null>(null);
   const [draftKey, setDraftKey] = useState(0);
+  const [editingRoomType, setEditingRoomType] = useState<RoomTypeRecord | null>(
+    null,
+  );
 
   const createModal = useModal();
   const detailModal = useModal();
+  const roomTypeModal = useModal();
 
   const events: EventInput[] = useMemo(
     () =>
@@ -79,8 +85,8 @@ const BookingCalendar: React.FC = () => {
     [reservations],
   );
 
-  function openDraft(values: ReservationFormValues) {
-    setDraft(values);
+  function openDraft(values: Partial<ReturnType<typeof defaultReservationForm>>) {
+    setDraft(defaultReservationForm(values));
     setDraftKey((k) => k + 1);
     createModal.openModal();
   }
@@ -88,23 +94,59 @@ const BookingCalendar: React.FC = () => {
   function handleCellSelect(room: Room, date: string) {
     openDraft({
       guest_id: guests[0]?.id ?? "",
+      guest_mode: guests[0] ? "existing" : "new",
       room_id: room.id,
+      room_type: room.type,
       check_in: date,
       check_out: addDays(date, 1),
-      notes: "",
     });
   }
+
+  function handleUnallocatedCellSelect(typeSlug: string, date: string) {
+    openDraft({
+      guest_id: guests[0]?.id ?? "",
+      guest_mode: guests[0] ? "existing" : "new",
+      room_id: "",
+      room_type: typeSlug,
+      check_in: date,
+      check_out: addDays(date, 1),
+    });
+  }
+
+  function openAddRoomType() {
+    setEditingRoomType(null);
+    roomTypeModal.openModal();
+  }
+
+  function openEditRoomType(type: RoomTypeRecord) {
+    setEditingRoomType(type);
+    roomTypeModal.openModal();
+  }
+
+  const onSaveRoomType = (values: { label: string }) =>
+    mutate(() =>
+      editingRoomType
+        ? api.updateRoomType({ id: editingRoomType.id, label: values.label })
+        : api.createRoomType(values),
+    );
+
+  const onDeleteRoomType = () =>
+    editingRoomType
+      ? mutate(() => api.deleteRoomType(editingRoomType.id))
+      : Promise.resolve(false);
 
   function handleMonthSelect(selectInfo: DateSelectArg) {
     const checkIn = selectInfo.startStr.slice(0, 10);
     const checkOut = selectInfo.endStr.slice(0, 10);
+    const fallbackRoom =
+      rooms.find((r) => r.status === "available") ?? rooms[0];
     openDraft({
       guest_id: guests[0]?.id ?? "",
-      room_id:
-        rooms.find((r) => r.status === "available")?.id ?? rooms[0]?.id ?? "",
+      guest_mode: guests[0] ? "existing" : "new",
+      room_id: fallbackRoom?.id ?? "",
+      room_type: fallbackRoom?.type ?? "",
       check_in: checkIn,
       check_out: checkOut > checkIn ? checkOut : addDays(checkIn, 1),
-      notes: "",
     });
   }
 
@@ -118,8 +160,8 @@ const BookingCalendar: React.FC = () => {
     if (reservation) openReservation(reservation);
   }
 
-  const onCreate = (values: ReservationFormValues) =>
-    mutate(() => api.createReservation(values));
+  const onCreate = (values: ReturnType<typeof defaultReservationForm>) =>
+    mutate(() => api.createReservation(formToCreateInput(values)));
 
   const onAction = (action: ReservationAction, id: string) =>
     mutate(() => {
@@ -223,11 +265,15 @@ const BookingCalendar: React.FC = () => {
 
           <TapeChart
             rooms={rooms}
+            roomTypes={room_types}
             reservations={reservations}
             start={start}
             days={days}
             onSelectReservation={openReservation}
             onSelectCell={handleCellSelect}
+            onSelectUnallocatedCell={handleUnallocatedCellSelect}
+            onAddRoomType={openAddRoomType}
+            onEditRoomType={openEditRoomType}
           />
         </>
       ) : (
@@ -259,6 +305,7 @@ const BookingCalendar: React.FC = () => {
           onClose={createModal.closeModal}
           guests={guests}
           rooms={rooms}
+          roomTypes={room_types}
           initial={draft}
           onCreate={onCreate}
         />
@@ -268,8 +315,18 @@ const BookingCalendar: React.FC = () => {
         isOpen={detailModal.isOpen}
         onClose={detailModal.closeModal}
         reservation={selected}
+        guest={guests.find((g) => g.id === selected?.guest_id) ?? null}
         rooms={rooms}
+        roomTypes={room_types}
         onAction={onAction}
+      />
+
+      <RoomTypeDialog
+        isOpen={roomTypeModal.isOpen}
+        onClose={roomTypeModal.closeModal}
+        editing={editingRoomType}
+        onSave={onSaveRoomType}
+        onDelete={editingRoomType ? onDeleteRoomType : undefined}
       />
     </div>
   );
