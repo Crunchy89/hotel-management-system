@@ -10,7 +10,7 @@ import type {
   UpdateRoomInput,
 } from "@/lib/types";
 
-const STORAGE_KEY = "hms-hotel-data-v1";
+const STORAGE_KEY = "hms-hotel-data-v2";
 
 type StoreData = {
   rooms: Room[];
@@ -18,7 +18,13 @@ type StoreData = {
   reservations: Reservation[];
 };
 
-const ROOM_TYPES = new Set(["standard", "deluxe", "suite"]);
+const ROOM_TYPES = new Set([
+  "standard",
+  "twin",
+  "deluxe",
+  "suite",
+  "family",
+]);
 const ROOM_STATUSES = new Set(["available", "occupied", "cleaning", "maintenance"]);
 
 function uid() {
@@ -29,100 +35,212 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function addDays(iso: string, days: number): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function offsetDate(days: number): string {
+  return addDays(todayISO(), days);
+}
+
+const ROOM_SEED: Array<[string, string, number, number, string]> = [
+  // number, type, floor, rate, status
+  ["101", "standard", 1, 120, "occupied"],
+  ["102", "standard", 1, 120, "cleaning"],
+  ["103", "standard", 1, 130, "occupied"],
+  ["104", "standard", 1, 130, "available"],
+  ["105", "twin", 1, 150, "occupied"],
+  ["201", "deluxe", 2, 195, "occupied"],
+  ["202", "deluxe", 2, 195, "available"],
+  ["203", "deluxe", 2, 210, "occupied"],
+  ["204", "deluxe", 2, 210, "available"],
+  ["205", "family", 2, 260, "occupied"],
+  ["301", "suite", 3, 340, "cleaning"],
+  ["302", "suite", 3, 380, "maintenance"],
+];
+
+const GUEST_SEED: Array<[string, string, string, string]> = [
+  ["Ava", "Chen", "ava.chen@example.com", "P1234567"],
+  ["Marcus", "Reid", "marcus.reid@example.com", "P7654321"],
+  ["Sofia", "Martinez", "sofia.m@example.com", "DL998877"],
+  ["Daniel", "Okafor", "d.okafor@example.com", "P4451220"],
+  ["Yuki", "Tanaka", "yuki.tanaka@example.com", "JP889201"],
+  ["Elena", "Petrova", "elena.p@example.com", "RU553120"],
+  ["Liam", "O'Connor", "liam.oc@example.com", "IE223410"],
+  ["Priya", "Nair", "priya.nair@example.com", "IN778120"],
+  ["Tomas", "Lindqvist", "tomas.l@example.com", "SE119043"],
+  ["Grace", "Mwangi", "grace.m@example.com", "KE664301"],
+];
+
+/** room number → [start offset in days, nights, status] */
+const RESERVATION_SEED: Record<
+  string,
+  Array<[number, number, string]>
+> = {
+  "101": [
+    [-6, 3, "checked_out"],
+    [0, 2, "checked_in"],
+    [4, 3, "booked"],
+  ],
+  "102": [
+    [-4, 2, "checked_out"],
+    [6, 2, "cancelled"],
+  ],
+  "103": [
+    [0, 5, "checked_in"],
+    [7, 2, "booked"],
+  ],
+  "104": [
+    [2, 3, "booked"],
+    [8, 4, "booked"],
+  ],
+  "105": [[-2, 3, "checked_in"]],
+  "201": [
+    [-5, 2, "checked_out"],
+    [0, 4, "checked_in"],
+    [6, 2, "booked"],
+  ],
+  "202": [[3, 5, "booked"]],
+  "203": [
+    [-1, 3, "checked_in"],
+    [5, 3, "booked"],
+  ],
+  "204": [
+    [1, 2, "booked"],
+    [9, 3, "booked"],
+  ],
+  "205": [[0, 7, "checked_in"]],
+  "301": [
+    [-3, 4, "checked_out"],
+    [2, 4, "booked"],
+  ],
+  "302": [
+    [5, 5, "booked"],
+    [12, 3, "booked"],
+  ],
+};
+
+const SEED_NOTES = [
+  "",
+  "Early arrival requested",
+  "Honeymoon — sparkling wine on arrival",
+  "Late check-out approved",
+  "Allergic to feather pillows",
+  "Corporate rate — invoice to company",
+  "Travelling with infant, needs cot",
+  "",
+];
+
 function seedData(): StoreData {
-  const rooms: Room[] = [
-    { id: uid(), number: "101", type: "standard", floor: 1, status: "available", rate: 120 },
-    { id: uid(), number: "102", type: "standard", floor: 1, status: "available", rate: 120 },
-    { id: uid(), number: "201", type: "deluxe", floor: 2, status: "available", rate: 180 },
-    { id: uid(), number: "202", type: "deluxe", floor: 2, status: "cleaning", rate: 180 },
-    { id: uid(), number: "301", type: "suite", floor: 3, status: "available", rate: 320 },
-  ];
-
-  const guests: Guest[] = [
-    {
-      id: uid(),
-      first_name: "Ava",
-      last_name: "Chen",
-      email: "ava.chen@example.com",
-      phone: "+1-555-0101",
-      id_document: "P1234567",
-    },
-    {
-      id: uid(),
-      first_name: "Marcus",
-      last_name: "Reid",
-      email: "marcus.reid@example.com",
-      phone: "+1-555-0102",
-      id_document: "P7654321",
-    },
-    {
-      id: uid(),
-      first_name: "Sofia",
-      last_name: "Martinez",
-      email: "sofia.m@example.com",
-      phone: "+1-555-0103",
-      id_document: "DL998877",
-    },
-  ];
-
-  const today = todayISO();
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const inThree = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
   const now = new Date().toISOString();
 
-  const reservations: Reservation[] = [
-    {
+  const rooms: Room[] = ROOM_SEED.map(
+    ([number, type, floor, rate, status]) => ({
       id: uid(),
-      guest_id: guests[0]!.id,
-      room_id: rooms[0]!.id,
-      check_in: today,
-      check_out: tomorrow,
-      status: "booked",
-      notes: "Early arrival requested",
-      created_at: now,
-      updated_at: now,
-      guest_name: `${guests[0]!.first_name} ${guests[0]!.last_name}`,
-      room_number: rooms[0]!.number,
-    },
-    {
+      number,
+      type,
+      floor,
+      status,
+      rate,
+    }),
+  );
+
+  const guests: Guest[] = GUEST_SEED.map(
+    ([first_name, last_name, email, id_document], i) => ({
       id: uid(),
-      guest_id: guests[1]!.id,
-      room_id: rooms[2]!.id,
-      check_in: tomorrow,
-      check_out: inThree,
-      status: "booked",
-      notes: "",
-      created_at: now,
-      updated_at: now,
-      guest_name: `${guests[1]!.first_name} ${guests[1]!.last_name}`,
-      room_number: rooms[2]!.number,
-    },
-  ];
+      first_name,
+      last_name,
+      email,
+      phone: `+1-555-01${String(i + 10).padStart(2, "0")}`,
+      id_document,
+    }),
+  );
+
+  const reservations: Reservation[] = [];
+  let seq = 0;
+
+  for (const room of rooms) {
+    for (const [startOffset, nights, status] of RESERVATION_SEED[room.number] ??
+      []) {
+      const guest = guests[seq % guests.length]!;
+      reservations.push({
+        id: uid(),
+        guest_id: guest.id,
+        room_id: room.id,
+        check_in: offsetDate(startOffset),
+        check_out: offsetDate(startOffset + nights),
+        status,
+        notes: SEED_NOTES[seq % SEED_NOTES.length]!,
+        created_at: now,
+        updated_at: now,
+        guest_name: `${guest.first_name} ${guest.last_name}`,
+        room_number: room.number,
+      });
+      seq += 1;
+    }
+  }
 
   return { rooms, guests, reservations };
 }
 
+const EMPTY_DATA: StoreData = { rooms: [], guests: [], reservations: [] };
+
+/**
+ * Reads go through an in-memory cache so snapshots keep a stable identity
+ * between mutations, which `useSyncExternalStore` requires.
+ */
+let cache: StoreData | null = null;
+let version = 0;
+const listeners = new Set<() => void>();
+
+export function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function getVersion(): number {
+  return version;
+}
+
+/** Drops the cache so the next read re-parses localStorage. */
+export function refresh(): void {
+  cache = null;
+  version += 1;
+  listeners.forEach((listener) => listener());
+}
+
 function read(): StoreData {
-  if (typeof window === "undefined") {
-    return { rooms: [], guests: [], reservations: [] };
-  }
+  if (typeof window === "undefined") return EMPTY_DATA;
+  if (cache) return cache;
+
   const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    const seeded = seedData();
-    write(seeded);
-    return seeded;
+  if (raw) {
+    try {
+      cache = JSON.parse(raw) as StoreData;
+      return cache;
+    } catch {
+      // fall through to reseed
+    }
   }
-  try {
-    return JSON.parse(raw) as StoreData;
-  } catch {
-    const seeded = seedData();
-    write(seeded);
-    return seeded;
-  }
+
+  cache = seedData();
+  persist(cache);
+  return cache;
+}
+
+function persist(data: StoreData) {
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
 function write(data: StoreData) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  cache = data;
+  persist(data);
+  version += 1;
+  listeners.forEach((listener) => listener());
 }
 
 function withData<T>(fn: (data: StoreData) => T): T {
@@ -378,4 +496,51 @@ export function getDashboardStats(): DashboardStats {
     ).length,
     booked_active: data.reservations.filter((r) => r.status === "booked").length,
   };
+}
+
+/**
+ * Version-keyed snapshot cache. `useSyncExternalStore` compares snapshots by
+ * identity, so each derived list is rebuilt only when the store changes.
+ */
+type Snapshot = {
+  rooms: Room[];
+  guests: Guest[];
+  reservations: Reservation[];
+  stats: DashboardStats;
+};
+
+const EMPTY_SNAPSHOT: Snapshot = {
+  rooms: [],
+  guests: [],
+  reservations: [],
+  stats: {
+    available_rooms: 0,
+    occupied_rooms: 0,
+    total_guests: 0,
+    arrivals_today: 0,
+    departures_today: 0,
+    booked_active: 0,
+  },
+};
+
+let snapshot: Snapshot = EMPTY_SNAPSHOT;
+let snapshotVersion = -1;
+
+export function getSnapshot(): Snapshot {
+  if (typeof window === "undefined") return EMPTY_SNAPSHOT;
+  read();
+  if (snapshotVersion !== version) {
+    snapshot = {
+      rooms: listRooms(),
+      guests: listGuests(),
+      reservations: listReservations(),
+      stats: getDashboardStats(),
+    };
+    snapshotVersion = version;
+  }
+  return snapshot;
+}
+
+export function getServerSnapshot(): Snapshot {
+  return EMPTY_SNAPSHOT;
 }

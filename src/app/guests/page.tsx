@@ -1,16 +1,26 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
+import ComponentCard from "@/components/common/ComponentCard";
+import PageHeader from "@/components/common/PageHeader";
+import { Alert, Field, inputClass } from "@/components/form";
+import Button from "@/components/ui/button/Button";
+import { Modal } from "@/components/ui/modal";
 import {
-  Field,
-  Modal,
-  btnPrimary,
-  btnSecondary,
-  btnSmall,
-  inputClass,
-} from "@/components/Modal";
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useModal } from "@/hooks/useModal";
+import { api } from "@/lib/api";
 import type { Guest } from "@/lib/types";
-import { api, formatError } from "@/lib/api";
+import { useHotelData } from "@/lib/useHotelData";
+
+const headerCell =
+  "px-5 py-3 text-left text-theme-xs font-medium uppercase text-gray-500 dark:text-gray-400";
+const bodyCell = "px-5 py-4 text-theme-sm text-gray-700 dark:text-gray-300";
 
 const emptyForm = {
   first_name: "",
@@ -21,30 +31,12 @@ const emptyForm = {
 };
 
 export default function GuestsPage() {
-  const [guests, setGuests] = useState<Guest[]>([]);
+  const { guests, loading, error, mutate } = useHotelData();
   const [query, setQuery] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Guest | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setGuests(await api.listGuests());
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { isOpen, openModal, closeModal } = useModal();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -60,7 +52,7 @@ export default function GuestsPage() {
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
-    setOpen(true);
+    openModal();
   }
 
   function openEdit(guest: Guest) {
@@ -72,106 +64,135 @@ export default function GuestsPage() {
       phone: guest.phone,
       id_document: guest.id_document,
     });
-    setOpen(true);
+    openModal();
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setError("");
-    try {
-      if (editing) {
-        await api.updateGuest({ id: editing.id, ...form });
-      } else {
-        await api.createGuest(form);
-      }
-      setOpen(false);
-      await load();
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setSaving(false);
-    }
+    const ok = await mutate(() =>
+      editing
+        ? api.updateGuest({ id: editing.id, ...form })
+        : api.createGuest(form),
+    );
+    setSaving(false);
+    if (ok) closeModal();
   }
 
   return (
     <div>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Guests</h1>
-          <p className="mt-1 text-sm text-muted">Guest profiles for bookings and front desk.</p>
-        </div>
-        <button type="button" onClick={openCreate} className={btnPrimary}>
-          Add guest
-        </button>
-      </header>
+      <PageHeader
+        title="Guests"
+        description="Guest profiles for bookings and front desk."
+        action={
+          <Button size="sm" onClick={openCreate}>
+            Add guest
+          </Button>
+        }
+      />
 
-      <div className="mb-4">
-        <input
-          className={`${inputClass} max-w-md`}
-          placeholder="Search name, email, phone…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
+      {error && <Alert>{error}</Alert>}
 
-      {error && (
-        <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-danger">
-          {error}
-        </div>
-      )}
-
-      <div className="overflow-hidden rounded-lg border border-line bg-surface">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-line bg-bg/80 text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Name</th>
-              <th className="px-4 py-3 font-semibold">Email</th>
-              <th className="px-4 py-3 font-semibold">Phone</th>
-              <th className="px-4 py-3 font-semibold">ID document</th>
-              <th className="px-4 py-3 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                  {loading ? "Loading…" : "No guests found."}
-                </td>
-              </tr>
-            )}
-            {filtered.map((guest) => (
-              <tr key={guest.id} className="border-t border-line">
-                <td className="px-4 py-3 font-medium">
-                  {guest.first_name} {guest.last_name}
-                </td>
-                <td className="px-4 py-3">{guest.email || "—"}</td>
-                <td className="px-4 py-3">{guest.phone || "—"}</td>
-                <td className="px-4 py-3">{guest.id_document || "—"}</td>
-                <td className="px-4 py-3">
-                  <button type="button" className={btnSmall} onClick={() => openEdit(guest)}>
-                    Edit
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <Modal
-        open={open}
-        title={editing ? "Edit guest" : "Add guest"}
-        onClose={() => setOpen(false)}
+      <ComponentCard
+        title="Guest directory"
+        desc={`${guests.length} guest${guests.length === 1 ? "" : "s"} on file`}
+        action={
+          <input
+            className={`${inputClass} sm:w-72`}
+            placeholder="Search name, email, phone…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        }
       >
+        <div className="custom-scrollbar overflow-x-auto">
+          <Table>
+            <TableHeader className="border-b border-gray-100 dark:border-gray-800">
+              <TableRow>
+                <TableCell isHeader className={headerCell}>
+                  Name
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Email
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Phone
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  ID document
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Actions
+                </TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="px-5 py-8 text-center text-theme-sm text-gray-500 dark:text-gray-400"
+                  >
+                    {loading ? "Loading…" : "No guests found."}
+                  </TableCell>
+                </TableRow>
+              )}
+              {filtered.map((guest) => (
+                <TableRow key={guest.id}>
+                  <TableCell className={bodyCell}>
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-theme-xs font-semibold uppercase text-brand-500 dark:bg-brand-500/15 dark:text-brand-400">
+                        {guest.first_name.charAt(0)}
+                        {guest.last_name.charAt(0)}
+                      </span>
+                      <span className="font-medium text-gray-800 dark:text-white/90">
+                        {guest.first_name} {guest.last_name}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className={bodyCell}>
+                    {guest.email || "—"}
+                  </TableCell>
+                  <TableCell className={bodyCell}>
+                    {guest.phone || "—"}
+                  </TableCell>
+                  <TableCell className={bodyCell}>
+                    {guest.id_document || "—"}
+                  </TableCell>
+                  <TableCell className={bodyCell}>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => openEdit(guest)}
+                    >
+                      Edit
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </ComponentCard>
+
+      <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[600px] p-6 lg:p-8">
+        <h4 className="mb-1 text-theme-xl font-semibold text-gray-800 dark:text-white/90">
+          {editing ? "Edit guest" : "Add guest"}
+        </h4>
+        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+          Guest details used for reservations and check-in.
+        </p>
+
         <form onSubmit={onSubmit}>
-          <div className="grid gap-0 sm:grid-cols-2 sm:gap-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="First name">
               <input
                 className={inputClass}
                 required
                 value={form.first_name}
-                onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, first_name: e.target.value })
+                }
               />
             </Field>
             <Field label="Last name">
@@ -182,36 +203,39 @@ export default function GuestsPage() {
                 onChange={(e) => setForm({ ...form, last_name: e.target.value })}
               />
             </Field>
+            <Field label="Email" className="sm:col-span-2">
+              <input
+                className={inputClass}
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </Field>
+            <Field label="Phone">
+              <input
+                className={inputClass}
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </Field>
+            <Field label="ID document">
+              <input
+                className={inputClass}
+                value={form.id_document}
+                onChange={(e) =>
+                  setForm({ ...form, id_document: e.target.value })
+                }
+              />
+            </Field>
           </div>
-          <Field label="Email">
-            <input
-              className={inputClass}
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-          </Field>
-          <Field label="Phone">
-            <input
-              className={inputClass}
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-          </Field>
-          <Field label="ID document">
-            <input
-              className={inputClass}
-              value={form.id_document}
-              onChange={(e) => setForm({ ...form, id_document: e.target.value })}
-            />
-          </Field>
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" className={btnSecondary} onClick={() => setOpen(false)}>
+
+          <div className="mt-6 flex items-center gap-3 sm:justify-end">
+            <Button size="sm" variant="outline" onClick={closeModal}>
               Cancel
-            </button>
-            <button type="submit" className={btnPrimary} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </button>
+            </Button>
+            <Button size="sm" type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save guest"}
+            </Button>
           </div>
         </form>
       </Modal>

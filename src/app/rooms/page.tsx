@@ -1,17 +1,27 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
-import {
-  Field,
-  Modal,
-  btnPrimary,
-  btnSecondary,
-  btnSmall,
-  inputClass,
-} from "@/components/Modal";
+import { FormEvent, useState } from "react";
+import ComponentCard from "@/components/common/ComponentCard";
+import PageHeader from "@/components/common/PageHeader";
 import { RoomStatusBadge } from "@/components/StatusBadge";
+import { Alert, Field, inputClass } from "@/components/form";
+import Button from "@/components/ui/button/Button";
+import { Modal } from "@/components/ui/modal";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useModal } from "@/hooks/useModal";
+import { api } from "@/lib/api";
 import type { Room } from "@/lib/types";
-import { api, formatError } from "@/lib/api";
+import { useHotelData } from "@/lib/useHotelData";
+
+const headerCell =
+  "px-5 py-3 text-left text-theme-xs font-medium uppercase text-gray-500 dark:text-gray-400";
+const bodyCell = "px-5 py-4 text-theme-sm text-gray-700 dark:text-gray-300";
 
 const emptyForm = {
   number: "",
@@ -22,34 +32,16 @@ const emptyForm = {
 };
 
 export default function RoomsPage() {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+  const { rooms, loading, error, mutate } = useHotelData();
   const [editing, setEditing] = useState<Room | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setRooms(await api.listRooms());
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { isOpen, openModal, closeModal } = useModal();
 
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
-    setOpen(true);
+    openModal();
   }
 
   function openEdit(room: Room) {
@@ -61,190 +53,224 @@ export default function RoomsPage() {
       status: room.status,
       rate: room.rate,
     });
-    setOpen(true);
+    openModal();
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setError("");
-    try {
-      if (editing) {
-        await api.updateRoom({ id: editing.id, ...form, floor: Number(form.floor), rate: Number(form.rate) });
-      } else {
-        await api.createRoom({ ...form, floor: Number(form.floor), rate: Number(form.rate) });
-      }
-      setOpen(false);
-      await load();
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setSaving(false);
-    }
+    const payload = {
+      ...form,
+      floor: Number(form.floor),
+      rate: Number(form.rate),
+    };
+    const ok = await mutate(() =>
+      editing
+        ? api.updateRoom({ id: editing.id, ...payload })
+        : api.createRoom(payload),
+    );
+    setSaving(false);
+    if (ok) closeModal();
   }
 
   async function setStatus(id: string, status: string) {
-    setError("");
-    try {
-      await api.setRoomStatus(id, status);
-      await load();
-    } catch (err) {
-      setError(formatError(err));
-    }
+    await mutate(() => api.setRoomStatus(id, status));
   }
 
   return (
     <div>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Rooms</h1>
-          <p className="mt-1 text-sm text-muted">Inventory, rates, and housekeeping status.</p>
-        </div>
-        <button type="button" onClick={openCreate} className={btnPrimary}>
-          Add room
-        </button>
-      </header>
+      <PageHeader
+        title="Rooms"
+        description="Inventory, rates, and housekeeping status."
+        action={
+          <Button size="sm" onClick={openCreate}>
+            Add room
+          </Button>
+        }
+      />
 
-      {error && (
-        <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-danger">
-          {error}
-        </div>
-      )}
+      {error && <Alert>{error}</Alert>}
 
-      <div className="overflow-hidden rounded-lg border border-line bg-surface">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-line bg-bg/80 text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Number</th>
-              <th className="px-4 py-3 font-semibold">Type</th>
-              <th className="px-4 py-3 font-semibold">Floor</th>
-              <th className="px-4 py-3 font-semibold">Rate</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rooms.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                  {loading ? "Loading…" : "No rooms yet."}
-                </td>
-              </tr>
-            )}
-            {rooms.map((room) => (
-              <tr key={room.id} className="border-t border-line">
-                <td className="px-4 py-3 font-semibold">{room.number}</td>
-                <td className="px-4 py-3 capitalize">{room.type}</td>
-                <td className="px-4 py-3 tabular-nums">{room.floor}</td>
-                <td className="px-4 py-3 tabular-nums">${room.rate.toFixed(2)}</td>
-                <td className="px-4 py-3">
-                  <RoomStatusBadge status={room.status} />
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    <button type="button" className={btnSmall} onClick={() => openEdit(room)}>
-                      Edit
-                    </button>
-                    {room.status === "cleaning" && (
-                      <button
-                        type="button"
-                        className={btnSmall}
-                        onClick={() => void setStatus(room.id, "available")}
-                      >
-                        Mark available
-                      </button>
-                    )}
-                    {room.status === "available" && (
-                      <button
-                        type="button"
-                        className={btnSmall}
-                        onClick={() => void setStatus(room.id, "maintenance")}
-                      >
-                        Maintenance
-                      </button>
-                    )}
-                    {room.status === "maintenance" && (
-                      <button
-                        type="button"
-                        className={btnSmall}
-                        onClick={() => void setStatus(room.id, "available")}
-                      >
-                        Clear maintenance
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <Modal
-        open={open}
-        title={editing ? "Edit room" : "Add room"}
-        onClose={() => setOpen(false)}
+      <ComponentCard
+        title="Room inventory"
+        desc={`${rooms.length} room${rooms.length === 1 ? "" : "s"} configured`}
       >
+        <div className="custom-scrollbar overflow-x-auto">
+          <Table>
+            <TableHeader className="border-b border-gray-100 dark:border-gray-800">
+              <TableRow>
+                <TableCell isHeader className={headerCell}>
+                  Number
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Type
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Floor
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Rate
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Status
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Actions
+                </TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {rooms.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="px-5 py-8 text-center text-theme-sm text-gray-500 dark:text-gray-400"
+                  >
+                    {loading ? "Loading…" : "No rooms yet."}
+                  </TableCell>
+                </TableRow>
+              )}
+              {rooms.map((room) => (
+                <TableRow key={room.id}>
+                  <TableCell
+                    className={`${bodyCell} font-semibold text-gray-800 dark:text-white/90`}
+                  >
+                    {room.number}
+                  </TableCell>
+                  <TableCell className={`${bodyCell} capitalize`}>
+                    {room.type}
+                  </TableCell>
+                  <TableCell className={`${bodyCell} tabular-nums`}>
+                    {room.floor}
+                  </TableCell>
+                  <TableCell className={`${bodyCell} tabular-nums`}>
+                    ${room.rate.toFixed(2)}
+                  </TableCell>
+                  <TableCell className={bodyCell}>
+                    <RoomStatusBadge status={room.status} />
+                  </TableCell>
+                  <TableCell className={bodyCell}>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => openEdit(room)}
+                      >
+                        Edit
+                      </Button>
+                      {room.status === "cleaning" && (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => void setStatus(room.id, "available")}
+                        >
+                          Mark available
+                        </Button>
+                      )}
+                      {room.status === "available" && (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => void setStatus(room.id, "maintenance")}
+                        >
+                          Maintenance
+                        </Button>
+                      )}
+                      {room.status === "maintenance" && (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => void setStatus(room.id, "available")}
+                        >
+                          Clear maintenance
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </ComponentCard>
+
+      <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[600px] p-6 lg:p-8">
+        <h4 className="mb-1 text-theme-xl font-semibold text-gray-800 dark:text-white/90">
+          {editing ? "Edit room" : "Add room"}
+        </h4>
+        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+          Configure the room number, type, rate, and housekeeping status.
+        </p>
+
         <form onSubmit={onSubmit}>
-          <Field label="Room number">
-            <input
-              className={inputClass}
-              required
-              value={form.number}
-              onChange={(e) => setForm({ ...form, number: e.target.value })}
-            />
-          </Field>
-          <Field label="Type">
-            <select
-              className={inputClass}
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
-            >
-              <option value="standard">Standard</option>
-              <option value="deluxe">Deluxe</option>
-              <option value="suite">Suite</option>
-            </select>
-          </Field>
-          <Field label="Floor">
-            <input
-              className={inputClass}
-              type="number"
-              min={0}
-              required
-              value={form.floor}
-              onChange={(e) => setForm({ ...form, floor: Number(e.target.value) })}
-            />
-          </Field>
-          <Field label="Nightly rate">
-            <input
-              className={inputClass}
-              type="number"
-              min={0}
-              step="0.01"
-              required
-              value={form.rate}
-              onChange={(e) => setForm({ ...form, rate: Number(e.target.value) })}
-            />
-          </Field>
-          <Field label="Status">
-            <select
-              className={inputClass}
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            >
-              <option value="available">Available</option>
-              <option value="occupied">Occupied</option>
-              <option value="cleaning">Cleaning</option>
-              <option value="maintenance">Maintenance</option>
-            </select>
-          </Field>
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" className={btnSecondary} onClick={() => setOpen(false)}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Room number">
+              <input
+                className={inputClass}
+                required
+                value={form.number}
+                onChange={(e) => setForm({ ...form, number: e.target.value })}
+              />
+            </Field>
+            <Field label="Type">
+              <select
+                className={inputClass}
+                value={form.type}
+                onChange={(e) => setForm({ ...form, type: e.target.value })}
+              >
+                <option value="standard">Standard</option>
+                <option value="twin">Twin</option>
+                <option value="deluxe">Deluxe</option>
+                <option value="suite">Suite</option>
+                <option value="family">Family</option>
+              </select>
+            </Field>
+            <Field label="Floor">
+              <input
+                className={inputClass}
+                type="number"
+                min={0}
+                required
+                value={form.floor}
+                onChange={(e) =>
+                  setForm({ ...form, floor: Number(e.target.value) })
+                }
+              />
+            </Field>
+            <Field label="Nightly rate">
+              <input
+                className={inputClass}
+                type="number"
+                min={0}
+                step="0.01"
+                required
+                value={form.rate}
+                onChange={(e) =>
+                  setForm({ ...form, rate: Number(e.target.value) })
+                }
+              />
+            </Field>
+            <Field label="Status" className="sm:col-span-2">
+              <select
+                className={inputClass}
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+              >
+                <option value="available">Available</option>
+                <option value="occupied">Occupied</option>
+                <option value="cleaning">Cleaning</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
+            </Field>
+          </div>
+
+          <div className="mt-6 flex items-center gap-3 sm:justify-end">
+            <Button size="sm" variant="outline" onClick={closeModal}>
               Cancel
-            </button>
-            <button type="submit" className={btnPrimary} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </button>
+            </Button>
+            <Button size="sm" type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save room"}
+            </Button>
           </div>
         </form>
       </Modal>

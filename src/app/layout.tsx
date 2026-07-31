@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { Source_Sans_3 } from "next/font/google";
-import { AppShell } from "@/components/AppShell";
+import { Outfit } from "next/font/google";
+import AdminShell from "@/layout/AdminShell";
+import { SidebarProvider } from "@/context/SidebarContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import "./globals.css";
 
-const bodyFont = Source_Sans_3({
-  variable: "--font-body",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -20,9 +21,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${bodyFont.variable} h-full`}>
-      <body className="h-full antialiased">
-        <AppShell>{children}</AppShell>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${outfit.variable} dark:bg-gray-900`}>
+        <ThemeProvider>
+          <SidebarProvider>
+            <AdminShell>{children}</AdminShell>
+          </SidebarProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,139 +1,187 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import type { DashboardStats, Reservation } from "@/lib/types";
-import { api, formatError } from "@/lib/api";
-import { ReservationStatusBadge } from "@/components/StatusBadge";
+import { useMemo, useState } from "react";
+import ComponentCard from "@/components/common/ComponentCard";
+import PageHeader from "@/components/common/PageHeader";
+import ForecastChart from "@/components/dashboard/ForecastChart";
+import MetricCard from "@/components/dashboard/MetricCard";
+import OperationsList from "@/components/dashboard/OperationsList";
+import RoomStatusChart from "@/components/dashboard/RoomStatusChart";
+import ReservationDetailDialog, {
+  type ReservationAction,
+} from "@/components/reservations/ReservationDetailDialog";
+import { Alert } from "@/components/form";
+import Button from "@/components/ui/button/Button";
+import { useModal } from "@/hooks/useModal";
+import { api } from "@/lib/api";
+import {
+  coversDate,
+  dailyMetrics,
+  dateRange,
+  formatCurrency,
+  isActive,
+  summarize,
+  todayISO,
+} from "@/lib/metrics";
+import type { Reservation } from "@/lib/types";
+import { useHotelData } from "@/lib/useHotelData";
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [today, setToday] = useState<Reservation[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const { rooms, reservations, error, reload, mutate } = useHotelData();
+  const [selected, setSelected] = useState<Reservation | null>(null);
+  const detailModal = useModal();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const [s, reservations] = await Promise.all([
-        api.getDashboardStats(),
-        api.listReservations(),
-      ]);
-      setStats(s);
-      const d = new Date().toISOString().slice(0, 10);
-      setToday(
-        reservations.filter(
-          (r) =>
-            (r.check_in === d || r.check_out === d) &&
-            r.status !== "cancelled" &&
-            r.status !== "checked_out",
-        ),
-      );
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const today = todayISO();
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { arrivals, departures, inHouse } = useMemo(() => {
+    const active = reservations.filter(isActive);
+    return {
+      arrivals: active.filter(
+        (r) => r.check_in === today && r.status === "booked",
+      ),
+      departures: active.filter(
+        (r) => r.check_out === today && r.status === "checked_in",
+      ),
+      inHouse: active.filter(
+        (r) => r.status === "checked_in" && coversDate(r, today),
+      ),
+    };
+  }, [reservations, today]);
 
-  const cards = [
-    { label: "Available rooms", value: stats?.available_rooms ?? 0 },
-    { label: "Occupied rooms", value: stats?.occupied_rooms ?? 0 },
-    { label: "Arrivals today", value: stats?.arrivals_today ?? 0 },
-    { label: "Departures today", value: stats?.departures_today ?? 0 },
-    { label: "Active bookings", value: stats?.booked_active ?? 0 },
-    { label: "Guests on file", value: stats?.total_guests ?? 0 },
-  ];
+  const forecast = useMemo(
+    () => dailyMetrics(dateRange(today, 14), reservations, rooms),
+    [reservations, rooms, today],
+  );
+
+  const weekSummary = useMemo(
+    () => summarize(forecast.slice(0, 7), rooms.length),
+    [forecast, rooms.length],
+  );
+
+  const roomCounts = useMemo(() => {
+    const count = (status: string) =>
+      rooms.filter((r) => r.status === status).length;
+    return {
+      available: count("available"),
+      occupied: count("occupied"),
+      cleaning: count("cleaning"),
+      maintenance: count("maintenance"),
+    };
+  }, [rooms]);
+
+  const todayMetrics = forecast[0];
+  const occupancyToday = todayMetrics
+    ? Math.round(todayMetrics.occupancyRate * 100)
+    : 0;
+
+  function openReservation(reservation: Reservation) {
+    setSelected(reservation);
+    detailModal.openModal();
+  }
+
+  const onAction = (action: ReservationAction, id: string) =>
+    mutate(() => {
+      if (action === "checkin") return api.checkIn(id);
+      if (action === "checkout") return api.checkOut(id);
+      return api.cancelReservation(id);
+    });
 
   return (
     <div>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted">
-            Front-desk overview for today&apos;s operations.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href="/reservations"
-            className="rounded-md bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-[#0c5c48]"
-          >
-            New reservation
-          </Link>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium"
-          >
-            Refresh
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Daily operations"
+        description="Everything the front desk needs to start the day."
+        action={
+          <>
+            <Link href="/calendar">
+              <Button size="sm">Open calendar</Button>
+            </Link>
+            <Button size="sm" variant="outline" onClick={() => void reload()}>
+              Refresh
+            </Button>
+          </>
+        }
+      />
 
-      {error && (
-        <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-danger">
-          {error}
-        </div>
-      )}
+      {error && <Alert>{error}</Alert>}
 
-      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((c) => (
-          <div
-            key={c.label}
-            className="rounded-lg border border-line bg-surface px-4 py-4"
-          >
-            <div className="text-xs font-semibold tracking-wide text-muted uppercase">
-              {c.label}
-            </div>
-            <div className="mt-2 text-3xl font-semibold tabular-nums">
-              {loading ? "—" : c.value}
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
+        <MetricCard
+          label="Occupancy today"
+          value={`${occupancyToday}%`}
+          hint={`${todayMetrics?.occupied ?? 0} of ${rooms.length} rooms sold`}
+          tone="brand"
+        />
+        <MetricCard
+          label="Revenue today"
+          value={formatCurrency(todayMetrics?.revenue ?? 0)}
+          hint={`${formatCurrency(weekSummary.revenue)} next 7 days`}
+          tone="success"
+        />
+        <MetricCard
+          label="ADR (7 days)"
+          value={formatCurrency(weekSummary.adr)}
+          hint="Average daily rate per sold room"
+          tone="info"
+        />
+        <MetricCard
+          label="RevPAR (7 days)"
+          value={formatCurrency(weekSummary.revpar)}
+          hint={`${Math.round(weekSummary.occupancyRate * 100)}% forecast occupancy`}
+          tone="warning"
+        />
       </div>
 
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Today&apos;s movements</h2>
-        <div className="overflow-hidden rounded-lg border border-line bg-surface">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-line bg-bg/80 text-xs tracking-wide text-muted uppercase">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Guest</th>
-                <th className="px-4 py-3 font-semibold">Room</th>
-                <th className="px-4 py-3 font-semibold">Check-in</th>
-                <th className="px-4 py-3 font-semibold">Check-out</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {today.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                    {loading ? "Loading…" : "No arrivals or departures scheduled for today."}
-                  </td>
-                </tr>
-              )}
-              {today.map((r) => (
-                <tr key={r.id} className="border-t border-line">
-                  <td className="px-4 py-3 font-medium">{r.guest_name}</td>
-                  <td className="px-4 py-3">{r.room_number}</td>
-                  <td className="px-4 py-3 tabular-nums">{r.check_in}</td>
-                  <td className="px-4 py-3 tabular-nums">{r.check_out}</td>
-                  <td className="px-4 py-3">
-                    <ReservationStatusBadge status={r.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <div className="mt-4 grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-3">
+        <OperationsList
+          title="Arrivals today"
+          emptyLabel="No arrivals scheduled."
+          reservations={arrivals}
+          tone="brand"
+          actionLabel="Check in"
+          onAction={(id) => void onAction("checkin", id)}
+          onSelect={openReservation}
+        />
+        <OperationsList
+          title="Departures today"
+          emptyLabel="No departures scheduled."
+          reservations={departures}
+          tone="warning"
+          actionLabel="Check out"
+          onAction={(id) => void onAction("checkout", id)}
+          onSelect={openReservation}
+        />
+        <OperationsList
+          title="In house"
+          emptyLabel="No guests staying tonight."
+          reservations={inHouse}
+          tone="success"
+          onSelect={openReservation}
+        />
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-3">
+        <ComponentCard
+          title="14-day forecast"
+          desc="Rooms sold and expected room revenue"
+          className="xl:col-span-2"
+        >
+          <ForecastChart days={forecast} roomCount={rooms.length} />
+        </ComponentCard>
+
+        <ComponentCard title="Room status" desc="Current housekeeping split">
+          <RoomStatusChart {...roomCounts} />
+        </ComponentCard>
+      </div>
+
+      <ReservationDetailDialog
+        isOpen={detailModal.isOpen}
+        onClose={detailModal.closeModal}
+        reservation={selected}
+        rooms={rooms}
+        onAction={onAction}
+      />
     </div>
   );
 }

@@ -1,287 +1,262 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Field,
-  Modal,
-  btnDanger,
-  btnPrimary,
-  btnSecondary,
-  btnSmall,
-  inputClass,
-} from "@/components/Modal";
+import { useMemo, useState } from "react";
+import ComponentCard from "@/components/common/ComponentCard";
+import PageHeader from "@/components/common/PageHeader";
 import { ReservationStatusBadge } from "@/components/StatusBadge";
-import type { Guest, Reservation, Room } from "@/lib/types";
-import { api, formatError } from "@/lib/api";
+import ReservationDetailDialog, {
+  type ReservationAction,
+} from "@/components/reservations/ReservationDetailDialog";
+import ReservationDialog, {
+  type ReservationFormValues,
+} from "@/components/reservations/ReservationDialog";
+import { Alert, inputClass } from "@/components/form";
+import Button from "@/components/ui/button/Button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useModal } from "@/hooks/useModal";
+import { api } from "@/lib/api";
+import { addDays, dayDiff, formatCurrency, todayISO } from "@/lib/metrics";
+import type { Reservation } from "@/lib/types";
+import { useHotelData } from "@/lib/useHotelData";
 
-const emptyForm = {
-  guest_id: "",
-  room_id: "",
-  check_in: "",
-  check_out: "",
-  notes: "",
-};
+const headerCell =
+  "px-5 py-3 text-left text-theme-xs font-medium uppercase text-gray-500 dark:text-gray-400";
+const bodyCell = "px-5 py-4 text-theme-sm text-gray-700 dark:text-gray-300";
+
+const filters = ["all", "booked", "checked_in", "checked_out", "cancelled"];
 
 export default function ReservationsPage() {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [guests, setGuests] = useState<Guest[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const { reservations, guests, rooms, loading, error, mutate } =
+    useHotelData();
+
   const [statusFilter, setStatusFilter] = useState("all");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<Reservation | null>(null);
+  const [draft, setDraft] = useState<ReservationFormValues | null>(null);
+  const [draftKey, setDraftKey] = useState(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const [res, g, r] = await Promise.all([
-        api.listReservations(),
-        api.listGuests(),
-        api.listRooms(),
-      ]);
-      setReservations(res);
-      setGuests(g);
-      setRooms(r);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const createModal = useModal();
+  const detailModal = useModal();
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const rateById = useMemo(
+    () => new Map(rooms.map((r) => [r.id, r.rate])),
+    [rooms],
+  );
 
   const filtered = useMemo(() => {
-    if (statusFilter === "all") return reservations;
-    return reservations.filter((r) => r.status === statusFilter);
-  }, [reservations, statusFilter]);
+    const q = query.trim().toLowerCase();
+    return reservations.filter((r) => {
+      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (!q) return true;
+      return `${r.guest_name ?? ""} ${r.room_number ?? ""} ${r.notes}`
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [reservations, statusFilter, query]);
 
   function openCreate() {
-    const today = new Date().toISOString().slice(0, 10);
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-    setForm({
+    const today = todayISO();
+    setDraft({
       guest_id: guests[0]?.id ?? "",
-      room_id: rooms.find((r) => r.status === "available")?.id ?? rooms[0]?.id ?? "",
+      room_id:
+        rooms.find((r) => r.status === "available")?.id ?? rooms[0]?.id ?? "",
       check_in: today,
-      check_out: tomorrow,
+      check_out: addDays(today, 1),
       notes: "",
     });
-    setOpen(true);
+    setDraftKey((k) => k + 1);
+    createModal.openModal();
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-    try {
-      await api.createReservation(form);
-      setOpen(false);
-      await load();
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setSaving(false);
-    }
+  function openReservation(reservation: Reservation) {
+    setSelected(reservation);
+    detailModal.openModal();
   }
 
-  async function act(kind: "checkin" | "checkout" | "cancel", id: string) {
-    setError("");
-    try {
-      if (kind === "checkin") await api.checkIn(id);
-      if (kind === "checkout") await api.checkOut(id);
-      if (kind === "cancel") await api.cancelReservation(id);
-      await load();
-    } catch (err) {
-      setError(formatError(err));
-    }
-  }
+  const onCreate = (values: ReservationFormValues) =>
+    mutate(() => api.createReservation(values));
+
+  const onAction = (action: ReservationAction, id: string) =>
+    mutate(() => {
+      if (action === "checkin") return api.checkIn(id);
+      if (action === "checkout") return api.checkOut(id);
+      return api.cancelReservation(id);
+    });
 
   return (
     <div>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Reservations</h1>
-          <p className="mt-1 text-sm text-muted">
-            Book stays, check guests in and out, and manage overlaps.
-          </p>
-        </div>
-        <button type="button" onClick={openCreate} className={btnPrimary}>
-          New reservation
-        </button>
-      </header>
+      <PageHeader
+        title="Reservations"
+        description="Book stays, check guests in and out, and manage overlaps."
+        action={
+          <Button size="sm" onClick={openCreate}>
+            New reservation
+          </Button>
+        }
+      />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {["all", "booked", "checked_in", "checked_out", "cancelled"].map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setStatusFilter(s)}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize ${
-              statusFilter === s
-                ? "bg-brand text-white"
-                : "border border-line bg-white text-ink hover:bg-bg"
-            }`}
-          >
-            {s.replaceAll("_", " ")}
-          </button>
-        ))}
+      {error && <Alert>{error}</Alert>}
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {filters.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className={`rounded-lg px-4 py-2 text-theme-sm font-medium capitalize transition ${
+                statusFilter === s
+                  ? "bg-brand-500 text-white shadow-theme-xs"
+                  : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-white/[0.03]"
+              }`}
+            >
+              {s.replaceAll("_", " ")}
+            </button>
+          ))}
+        </div>
+
+        <input
+          className={`${inputClass} sm:w-72`}
+          placeholder="Search guest, room, notes…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-danger">
-          {error}
-        </div>
-      )}
+      <ComponentCard
+        title="Booking list"
+        desc={`${filtered.length} reservation${filtered.length === 1 ? "" : "s"} in this view`}
+      >
+        <div className="custom-scrollbar overflow-x-auto">
+          <Table>
+            <TableHeader className="border-b border-gray-100 dark:border-gray-800">
+              <TableRow>
+                <TableCell isHeader className={headerCell}>
+                  Guest
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Room
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Dates
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Nights
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Total
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Status
+                </TableCell>
+                <TableCell isHeader className={headerCell}>
+                  Actions
+                </TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="px-5 py-8 text-center text-theme-sm text-gray-500 dark:text-gray-400"
+                  >
+                    {loading ? "Loading…" : "No reservations in this filter."}
+                  </TableCell>
+                </TableRow>
+              )}
+              {filtered.map((r) => {
+                const nights = Math.max(0, dayDiff(r.check_in, r.check_out));
+                const total = (rateById.get(r.room_id) ?? 0) * nights;
 
-      <div className="overflow-hidden rounded-lg border border-line bg-surface">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-line bg-bg/80 text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Guest</th>
-              <th className="px-4 py-3 font-semibold">Room</th>
-              <th className="px-4 py-3 font-semibold">Dates</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Notes</th>
-              <th className="px-4 py-3 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                  {loading ? "Loading…" : "No reservations in this filter."}
-                </td>
-              </tr>
-            )}
-            {filtered.map((r) => (
-              <tr key={r.id} className="border-t border-line align-top">
-                <td className="px-4 py-3 font-medium">{r.guest_name}</td>
-                <td className="px-4 py-3">{r.room_number}</td>
-                <td className="px-4 py-3 tabular-nums">
-                  {r.check_in} → {r.check_out}
-                </td>
-                <td className="px-4 py-3">
-                  <ReservationStatusBadge status={r.status} />
-                </td>
-                <td className="max-w-[12rem] truncate px-4 py-3 text-muted">
-                  {r.notes || "—"}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {r.status === "booked" && (
-                      <>
-                        <button
-                          type="button"
-                          className={btnSmall}
-                          onClick={() => void act("checkin", r.id)}
-                        >
-                          Check in
-                        </button>
-                        <button
-                          type="button"
-                          className={btnDanger}
-                          onClick={() => void act("cancel", r.id)}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    )}
-                    {r.status === "checked_in" && (
+                return (
+                  <TableRow key={r.id}>
+                    <TableCell className={bodyCell}>
                       <button
                         type="button"
-                        className={btnSmall}
-                        onClick={() => void act("checkout", r.id)}
+                        onClick={() => openReservation(r)}
+                        className="font-medium text-gray-800 hover:text-brand-500 dark:text-white/90"
                       >
-                        Check out
+                        {r.guest_name}
                       </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    </TableCell>
+                    <TableCell className={bodyCell}>{r.room_number}</TableCell>
+                    <TableCell className={`${bodyCell} tabular-nums`}>
+                      {r.check_in} → {r.check_out}
+                    </TableCell>
+                    <TableCell className={`${bodyCell} tabular-nums`}>
+                      {nights}
+                    </TableCell>
+                    <TableCell className={`${bodyCell} tabular-nums`}>
+                      {formatCurrency(total)}
+                    </TableCell>
+                    <TableCell className={bodyCell}>
+                      <ReservationStatusBadge status={r.status} />
+                    </TableCell>
+                    <TableCell className={bodyCell}>
+                      <div className="flex flex-wrap gap-2">
+                        {r.status === "booked" && (
+                          <>
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              onClick={() => void onAction("checkin", r.id)}
+                            >
+                              Check in
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="danger"
+                              onClick={() => void onAction("cancel", r.id)}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        )}
+                        {r.status === "checked_in" && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => void onAction("checkout", r.id)}
+                          >
+                            Check out
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      </ComponentCard>
 
-      <Modal open={open} title="New reservation" onClose={() => setOpen(false)}>
-        <form onSubmit={onSubmit}>
-          <Field label="Guest">
-            <select
-              className={inputClass}
-              required
-              value={form.guest_id}
-              onChange={(e) => setForm({ ...form, guest_id: e.target.value })}
-            >
-              <option value="" disabled>
-                Select guest
-              </option>
-              {guests.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.first_name} {g.last_name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Room">
-            <select
-              className={inputClass}
-              required
-              value={form.room_id}
-              onChange={(e) => setForm({ ...form, room_id: e.target.value })}
-            >
-              <option value="" disabled>
-                Select room
-              </option>
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.number} · {r.type} · {r.status}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <div className="grid gap-0 sm:grid-cols-2 sm:gap-3">
-            <Field label="Check-in">
-              <input
-                className={inputClass}
-                type="date"
-                required
-                value={form.check_in}
-                onChange={(e) => setForm({ ...form, check_in: e.target.value })}
-              />
-            </Field>
-            <Field label="Check-out">
-              <input
-                className={inputClass}
-                type="date"
-                required
-                value={form.check_out}
-                onChange={(e) => setForm({ ...form, check_out: e.target.value })}
-              />
-            </Field>
-          </div>
-          <Field label="Notes">
-            <textarea
-              className={inputClass}
-              rows={3}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
-          </Field>
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" className={btnSecondary} onClick={() => setOpen(false)}>
-              Cancel
-            </button>
-            <button type="submit" className={btnPrimary} disabled={saving}>
-              {saving ? "Saving…" : "Create booking"}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {draft && (
+        <ReservationDialog
+          key={draftKey}
+          isOpen={createModal.isOpen}
+          onClose={createModal.closeModal}
+          guests={guests}
+          rooms={rooms}
+          initial={draft}
+          onCreate={onCreate}
+        />
+      )}
+
+      <ReservationDetailDialog
+        isOpen={detailModal.isOpen}
+        onClose={detailModal.closeModal}
+        reservation={selected}
+        rooms={rooms}
+        onAction={onAction}
+      />
     </div>
   );
 }
