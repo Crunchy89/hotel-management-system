@@ -12,16 +12,25 @@ import {
   summarizeRows,
   type HousekeepingRow,
 } from "@/components/housekeeping/housekeepingUtils";
-import { Alert, inputClass, textareaClass } from "@/components/form";
+import PageHeader from "@/components/common/PageHeader";
+import { Alert, inputClass, selectClass, textareaClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
+import {
+  FilterField,
+  PageShell,
+  SidePanel,
+  SidePanelItem,
+  StatGrid,
+  StatTile,
+  SurfaceCard,
+  TwoColumnLayout,
+} from "@/components/ui/layout";
 import { Modal } from "@/components/ui/modal";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
 import { addDays, formatDate, todayISO } from "@/lib/metrics";
 import type { CleaningStatus } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
-
-const selectClass = inputClass;
 
 function Occupants({ adults, children, infants }: HousekeepingRow) {
   return (
@@ -175,104 +184,50 @@ export default function HousekeepingPage() {
   });
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-title-md font-semibold text-gray-800 dark:text-white/90">
-          Housekeeping
-        </h1>
-        <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-          Track room status, guest occupancy, and cleaning progress.
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Housekeeping"
+        description="Track room status, guest occupancy, and cleaning progress."
+      />
 
       {error && <Alert>{error}</Alert>}
 
-      <div className="flex flex-col gap-6 xl:flex-row">
-        {/* Left panel — room types & summary */}
-        <aside className="w-full shrink-0 xl:w-64">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Room types
-            </h2>
-            <ul className="space-y-1">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setTypeFilter("all")}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-theme-sm transition ${
-                    typeFilter === "all"
-                      ? "bg-brand-500 text-white shadow-theme-xs"
-                      : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]"
-                  }`}
-                >
-                  <span>All rooms</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-theme-xs font-semibold ${
-                      typeFilter === "all"
-                        ? "bg-white/20"
-                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                    }`}
-                  >
-                    {summary.total}
-                  </span>
-                </button>
-              </li>
-              {room_types.map((type) => (
-                <li key={type.id}>
-                  <button
-                    type="button"
-                    onClick={() => setTypeFilter(type.slug)}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-theme-sm transition ${
-                      typeFilter === type.slug
-                        ? "bg-brand-500 text-white shadow-theme-xs"
-                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]"
-                    }`}
-                  >
-                    <span className="truncate">{type.label}</span>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-theme-xs font-semibold ${
-                        typeFilter === type.slug
-                          ? "bg-white/20"
-                          : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                      }`}
-                    >
-                      {typeCounts.get(type.slug) ?? 0}
-                    </span>
-                  </button>
+      <TwoColumnLayout
+        sidebar={
+          <>
+            <SidePanel title="Room types">
+              <ul className="space-y-1">
+                <li>
+                  <SidePanelItem
+                    active={typeFilter === "all"}
+                    onClick={() => setTypeFilter("all")}
+                    label="All rooms"
+                    count={summary.total}
+                  />
                 </li>
-              ))}
-            </ul>
-          </div>
+                {room_types.map((type) => (
+                  <li key={type.id}>
+                    <SidePanelItem
+                      active={typeFilter === type.slug}
+                      onClick={() => setTypeFilter(type.slug)}
+                      label={type.label}
+                      count={typeCounts.get(type.slug) ?? 0}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </SidePanel>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            {[
-              { label: "Occupied", value: summary.occupied, tone: "text-success-600" },
-              { label: "Arrivals", value: summary.arrivals, tone: "text-brand-600" },
-              { label: "Vacant", value: summary.vacant, tone: "text-gray-600" },
-              {
-                label: "To clean",
-                value: summary.needsCleaning,
-                tone: "text-warning-600",
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]"
-              >
-                <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  {item.label}
-                </p>
-                <p className={`mt-1 text-xl font-bold tabular-nums ${item.tone}`}>
-                  {item.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <div className="min-w-0 flex-1">
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <StatGrid cols={2}>
+              <StatTile label="Occupied" value={summary.occupied} tone="success" />
+              <StatTile label="Arrivals" value={summary.arrivals} tone="brand" />
+              <StatTile label="Vacant" value={summary.vacant} />
+              <StatTile label="To clean" value={summary.needsCleaning} tone="warning" />
+            </StatGrid>
+          </>
+        }
+      >
+          <SurfaceCard className="overflow-hidden">
             <div className="border-b border-gray-200 p-5 dark:border-gray-800">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
@@ -320,10 +275,7 @@ export default function HousekeepingPage() {
               </div>
 
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                    Room status
-                  </label>
+                <FilterField label="Room status">
                   <select
                     className={selectClass}
                     value={occupancyFilter}
@@ -335,11 +287,8 @@ export default function HousekeepingPage() {
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                    Cleaning status
-                  </label>
+                </FilterField>
+                <FilterField label="Cleaning status">
                   <select
                     className={selectClass}
                     value={cleaningFilter}
@@ -351,7 +300,7 @@ export default function HousekeepingPage() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </FilterField>
               </div>
 
               {lastUpdated && (
@@ -461,9 +410,8 @@ export default function HousekeepingPage() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      </div>
+          </SurfaceCard>
+      </TwoColumnLayout>
 
       <Modal isOpen={noteModal.isOpen} onClose={noteModal.closeModal} className="max-w-md p-6">
         <h4 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">
@@ -488,6 +436,6 @@ export default function HousekeepingPage() {
           </Button>
         </div>
       </Modal>
-    </div>
+    </PageShell>
   );
 }

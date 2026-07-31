@@ -5,6 +5,7 @@ import ComponentCard from "@/components/common/ComponentCard";
 import PageHeader from "@/components/common/PageHeader";
 import { Alert, Field, inputClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
+import { PageShell } from "@/components/ui/layout";
 import { Modal } from "@/components/ui/modal";
 import {
   Table,
@@ -80,7 +81,7 @@ export default function GuestsPage() {
   }
 
   return (
-    <div>
+    <PageShell>
       <PageHeader
         title="Guests"
         description="Guest profiles for bookings and front desk."
@@ -239,6 +240,6 @@ export default function GuestsPage() {
           </div>
         </form>
       </Modal>
-    </div>
+    </PageShell>
   );
 }

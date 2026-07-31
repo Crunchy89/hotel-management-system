@@ -6,6 +6,7 @@ import PageHeader from "@/components/common/PageHeader";
 import { RoomStatusBadge } from "@/components/StatusBadge";
 import { Alert, Field, inputClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
+import { PageShell } from "@/components/ui/layout";
 import { Modal } from "@/components/ui/modal";
 import {
   Table,
@@ -78,7 +79,7 @@ export default function RoomsPage() {
   }
 
   return (
-    <div>
+    <PageShell>
       <PageHeader
         title="Rooms"
         description="Inventory, rates, and housekeeping status."
@@ -275,6 +276,6 @@ export default function RoomsPage() {
           </div>
         </form>
       </Modal>
-    </div>
+    </PageShell>
   );
 }

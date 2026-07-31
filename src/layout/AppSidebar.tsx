@@ -1,70 +1,127 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "@/context/SidebarContext";
-import {
-  BoxCubeIcon,
-  CalenderIcon,
-  GridIcon,
-  GroupIcon,
-  HorizontaLDots,
-  ListIcon,
-  PieChartIcon,
-  TaskIcon,
-  DollarLineIcon,
-  PlugInIcon,
-  BoltIcon,
-} from "@/icons";
 
 type NavItem = {
   name: string;
-  icon: React.ReactNode;
   path: string;
 };
 
 type NavSection = {
+  id: string;
   title: string;
   items: NavItem[];
 };
 
+const topNavItems: NavItem[] = [
+  { name: "Dashboard", path: "/" },
+  { name: "Insights", path: "/insights" },
+];
+
 const navSections: NavSection[] = [
   {
-    title: "Overview",
-    items: [{ icon: <GridIcon />, name: "Dashboard", path: "/" }],
-  },
-  {
-    title: "Front Desk",
+    id: "operational",
+    title: "Operational",
     items: [
-      { icon: <CalenderIcon />, name: "Calendar", path: "/calendar" },
-      { icon: <ListIcon />, name: "Reservations", path: "/reservations" },
+      { name: "Check-In", path: "/check-in" },
+      { name: "Calendar", path: "/calendar" },
+      { name: "Reservations", path: "/reservations" },
+      { name: "Housekeeping", path: "/housekeeping" },
+      { name: "Guests", path: "/guests" },
+      { name: "Rooms", path: "/rooms" },
     ],
   },
   {
-    title: "Property",
+    id: "strategic",
+    title: "Strategic",
     items: [
-      { icon: <BoxCubeIcon />, name: "Rooms", path: "/rooms" },
-      { icon: <TaskIcon />, name: "Housekeeping", path: "/housekeeping" },
-      { icon: <DollarLineIcon />, name: "Rooms & Prices", path: "/rates" },
+      { name: "Rooms & Prices", path: "/rates" },
+      { name: "Channels", path: "/channels" },
+      { name: "Yield Rules", path: "/yield-rules" },
     ],
-  },
-  {
-    title: "People",
-    items: [{ icon: <GroupIcon />, name: "Guests", path: "/guests" }],
-  },
-  {
-    title: "Distribution",
-    items: [
-      { icon: <PlugInIcon />, name: "Channels", path: "/channels" },
-      { icon: <BoltIcon />, name: "Yield Rules", path: "/yield-rules" },
-    ],
-  },
-  {
-    title: "Business",
-    items: [{ icon: <PieChartIcon />, name: "Insights", path: "/insights" }],
   },
 ];
+
+function sectionForPath(pathname: string): string {
+  for (const section of navSections) {
+    if (
+      section.items.some((item) =>
+        item.path === "/"
+          ? pathname === "/"
+          : pathname.startsWith(item.path),
+      )
+    ) {
+      return section.id;
+    }
+  }
+  return "operational";
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      className={`shrink-0 text-gray-400 transition-transform duration-200 ${
+        open ? "rotate-180" : ""
+      }`}
+      aria-hidden
+    >
+      <path
+        d="M4 6L8 10L12 6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function NavBullet({ active }: { active: boolean }) {
+  if (active) {
+    return (
+      <span
+        className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-orange-500"
+        aria-hidden
+      />
+    );
+  }
+
+  return (
+    <span
+      className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-gray-400 dark:border-gray-500"
+      aria-hidden
+    />
+  );
+}
+
+function NavLink({
+  item,
+  active,
+}: {
+  item: NavItem;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={item.path}
+      className={`flex items-start gap-3 rounded-lg px-3 py-2.5 text-theme-sm transition ${
+        active
+          ? "bg-gray-200/70 font-semibold text-gray-900 dark:bg-white/[0.08] dark:text-white"
+          : "font-normal text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/[0.04] dark:hover:text-gray-200"
+      }`}
+    >
+      <NavBullet active={active} />
+      <span className="leading-snug">{item.name}</span>
+    </Link>
+  );
+}
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -78,17 +135,33 @@ const AppSidebar: React.FC = () => {
 
   const showLabels = isExpanded || isHovered || isMobileOpen;
 
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({
+    operational: true,
+    strategic: false,
+  });
+
+  useEffect(() => {
+    const activeSection = sectionForPath(pathname);
+    setExpandedSections((prev) => ({ ...prev, [activeSection]: true }));
+  }, [pathname]);
+
+  function toggleSection(id: string) {
+    setExpandedSections((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
   return (
     <aside
-      className={`fixed left-0 top-0 z-50 mt-16 flex h-screen flex-col border-r border-gray-200 bg-white px-5 text-gray-900 transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-900 lg:mt-0
-        ${isExpanded || isMobileOpen || isHovered ? "w-[290px]" : "w-[90px]"}
+      className={`fixed left-0 top-0 z-50 mt-16 flex h-screen flex-col border-r border-gray-200 bg-gray-50 text-gray-900 transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-900 lg:mt-0
+        ${isExpanded || isMobileOpen || isHovered ? "w-[260px]" : "w-[90px]"}
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`flex py-8 ${
+        className={`flex border-b border-gray-200/80 px-5 py-6 dark:border-gray-800 ${
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
@@ -97,59 +170,86 @@ const AppSidebar: React.FC = () => {
             H
           </span>
           {showLabels && (
-            <span className="text-xl font-semibold text-gray-800 dark:text-white/90">
+            <span className="text-lg font-semibold text-gray-800 dark:text-white/90">
               HMS Hotel
             </span>
           )}
         </Link>
       </div>
 
-      <div className="no-scrollbar flex flex-col overflow-y-auto duration-300 ease-linear">
-        <nav className="mb-6">
-          <div className="flex flex-col gap-6">
-            {navSections.map((section) => (
-              <div key={section.title}>
-                <h2
-                  className={`mb-4 flex text-xs leading-[20px] uppercase text-gray-400 ${
-                    !isExpanded && !isHovered
-                      ? "lg:justify-center"
-                      : "justify-start"
+      <div className="no-scrollbar flex flex-1 flex-col overflow-y-auto px-4 pb-8 pt-4 duration-300 ease-linear">
+        <nav className="flex flex-col gap-2">
+          {showLabels && (
+            <ul className="mb-2 flex flex-col gap-0.5 border-b border-gray-200 pb-3 dark:border-gray-800">
+              {topNavItems.map((item) => (
+                <li key={item.path}>
+                  <NavLink item={item} active={isActive(item.path)} />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!showLabels && (
+            <ul className="mb-2 flex flex-col items-center gap-2 border-b border-gray-200 pb-3 dark:border-gray-800">
+              {topNavItems.map((item) => (
+                <li key={item.path}>
+                  <Link
+                    href={item.path}
+                    title={item.name}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+                      isActive(item.path)
+                        ? "bg-gray-200 dark:bg-white/[0.08]"
+                        : "hover:bg-gray-100 dark:hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <NavBullet active={isActive(item.path)} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {navSections.map((section) => {
+            const isOpen = expandedSections[section.id] ?? false;
+
+            return (
+              <div key={section.id} className="rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.id)}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition hover:bg-gray-100 dark:hover:bg-white/[0.04] ${
+                    !showLabels ? "lg:justify-center" : ""
                   }`}
+                  aria-expanded={isOpen}
                 >
-                  {showLabels ? section.title : <HorizontaLDots />}
-                </h2>
-                <ul className="flex flex-col gap-4">
-                  {section.items.map((nav) => (
-                    <li key={nav.name}>
-                      <Link
-                        href={nav.path}
-                        className={`menu-item group ${
-                          isActive(nav.path)
-                            ? "menu-item-active"
-                            : "menu-item-inactive"
-                        } ${
-                          !isExpanded && !isHovered
-                            ? "lg:justify-center"
-                            : "lg:justify-start"
-                        }`}
-                      >
-                        <span
-                          className={
-                            isActive(nav.path)
-                              ? "menu-item-icon-active"
-                              : "menu-item-icon-inactive"
-                          }
-                        >
-                          {nav.icon}
-                        </span>
-                        {showLabels && <span>{nav.name}</span>}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                  {showLabels ? (
+                    <>
+                      <span className="text-theme-sm font-semibold text-gray-800 dark:text-white/90">
+                        {section.title}
+                      </span>
+                      <ChevronIcon open={isOpen} />
+                    </>
+                  ) : (
+                    <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                  )}
+                </button>
+
+                {showLabels && isOpen && (
+                  <ul className="mt-1 flex flex-col gap-0.5 pb-2 pl-1">
+                    {section.items.map((item) => {
+                      const active = isActive(item.path);
+
+                      return (
+                        <li key={item.path}>
+                          <NavLink item={item} active={active} />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </nav>
       </div>
     </aside>

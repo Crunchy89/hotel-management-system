@@ -10,8 +10,22 @@ import {
   ruleValueLabel,
   summarizeYieldRules,
 } from "@/components/yield/yieldRulesUtils";
+import PageHeader from "@/components/common/PageHeader";
 import { Alert, Field, inputClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
+import {
+  FilterToolbar,
+  PageShell,
+  SidePanel,
+  SidePanelItem,
+  SidePanelLinkItem,
+  StatGrid,
+  StatTile,
+  SurfaceCard,
+  TwoColumnLayout,
+  tableBodyCell,
+  tableHeaderCell,
+} from "@/components/ui/layout";
 import { Modal } from "@/components/ui/modal";
 import {
   Table,
@@ -29,10 +43,6 @@ import type {
   YieldRuleType,
 } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
-
-const headerCell =
-  "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400";
-const bodyCell = "px-4 py-3 text-theme-xs text-gray-700 dark:text-gray-300";
 
 const emptyForm: CreateYieldRuleInput = {
   name: "",
@@ -145,95 +155,67 @@ export default function YieldRulesPage() {
   }
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-title-md font-semibold text-gray-800 dark:text-white/90">
-            Yield Rules
-          </h1>
-          <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-            Automate restrictions and pricing by occupancy, date, and room type.
-          </p>
-        </div>
-        <Button size="sm" onClick={openCreate}>
-          Add rule
-        </Button>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Yield Rules"
+        description="Automate restrictions and pricing by occupancy, date, and room type."
+        action={
+          <Button size="sm" onClick={openCreate}>
+            Add rule
+          </Button>
+        }
+      />
 
       {error && <Alert>{error}</Alert>}
 
-      <div className="flex flex-col gap-6 xl:flex-row">
-        {/* Left panel */}
-        <aside className="w-full shrink-0 xl:w-64">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Rule types
-            </h2>
-            <ul className="space-y-1">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setTypeFilter("all")}
-                  className={`w-full rounded-lg px-3 py-2 text-left text-theme-sm transition ${
-                    typeFilter === "all"
-                      ? "bg-brand-500 text-white"
-                      : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]"
-                  }`}
-                >
-                  All rules
-                </button>
-              </li>
-              {RULE_TYPE_OPTIONS.map((opt) => (
-                <li key={opt.value}>
-                  <button
-                    type="button"
-                    onClick={() => setTypeFilter(opt.value)}
-                    className={`w-full rounded-lg px-3 py-2 text-left text-theme-xs transition ${
-                      typeFilter === opt.value
-                        ? "font-semibold text-brand-600 dark:text-brand-400"
-                        : "text-gray-600 hover:text-gray-900 dark:text-gray-400"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
+      <TwoColumnLayout
+        sidebar={
+          <>
+            <SidePanel title="Rule types">
+              <ul className="space-y-1">
+                <li>
+                  <SidePanelItem
+                    active={typeFilter === "all"}
+                    onClick={() => setTypeFilter("all")}
+                    label="All rules"
+                  />
                 </li>
-              ))}
-            </ul>
-          </div>
+                {RULE_TYPE_OPTIONS.map((opt) => (
+                  <li key={opt.value}>
+                    <SidePanelLinkItem
+                      active={typeFilter === opt.value}
+                      onClick={() => setTypeFilter(opt.value)}
+                      label={opt.label}
+                      compact
+                    />
+                  </li>
+                ))}
+              </ul>
+            </SidePanel>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            {[
-              { label: "Total", value: summary.total },
-              { label: "Active", value: summary.active },
-              { label: "Restrictions", value: summary.restrictions },
-              { label: "Pricing", value: summary.pricing },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]"
-              >
-                <p className="text-[11px] uppercase tracking-wide text-gray-500">
-                  {item.label}
-                </p>
-                <p className="mt-1 text-xl font-bold tabular-nums text-gray-800 dark:text-white/90">
-                  {item.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        {/* Main */}
-        <div className="min-w-0 flex-1">
-          <div className="mb-4 flex flex-wrap gap-3">
-            <input
-              className={`${inputClass} min-w-[200px] flex-1`}
-              placeholder="Search rules…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+            <StatGrid cols={2}>
+              <StatTile label="Total" value={summary.total} />
+              <StatTile label="Active" value={summary.active} tone="success" />
+              <StatTile label="Restrictions" value={summary.restrictions} />
+              <StatTile label="Pricing" value={summary.pricing} tone="brand" />
+            </StatGrid>
+          </>
+        }
+      >
+          <FilterToolbar className="mb-4">
+            <div className="relative min-w-[200px] flex-1">
+              <input
+                className={`${inputClass} pl-10`}
+                placeholder="Search rules…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                🔍
+              </span>
+            </div>
             <select
-              className={`${inputClass} w-auto`}
+              className={`${inputClass} w-auto min-w-[140px]`}
               value={roomTypeFilter}
               onChange={(e) => setRoomTypeFilter(e.target.value)}
             >
@@ -245,7 +227,7 @@ export default function YieldRulesPage() {
               ))}
             </select>
             <select
-              className={`${inputClass} w-auto`}
+              className={`${inputClass} w-auto min-w-[120px]`}
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -253,32 +235,32 @@ export default function YieldRulesPage() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
-          </div>
+          </FilterToolbar>
 
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+          <SurfaceCard className="overflow-hidden">
             <div className="custom-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader className="border-b border-gray-200 dark:border-gray-800">
                   <TableRow>
-                    <TableCell isHeader className={headerCell}>
+                    <TableCell isHeader className={tableHeaderCell}>
                       Active
                     </TableCell>
-                    <TableCell isHeader className={headerCell}>
+                    <TableCell isHeader className={tableHeaderCell}>
                       Rule
                     </TableCell>
-                    <TableCell isHeader className={headerCell}>
+                    <TableCell isHeader className={tableHeaderCell}>
                       Type
                     </TableCell>
-                    <TableCell isHeader className={headerCell}>
+                    <TableCell isHeader className={tableHeaderCell}>
                       Room type
                     </TableCell>
-                    <TableCell isHeader className={headerCell}>
+                    <TableCell isHeader className={tableHeaderCell}>
                       Dates
                     </TableCell>
-                    <TableCell isHeader className={headerCell}>
+                    <TableCell isHeader className={tableHeaderCell}>
                       Value
                     </TableCell>
-                    <TableCell isHeader className={headerCell}>
+                    <TableCell isHeader className={tableHeaderCell}>
                       Actions
                     </TableCell>
                   </TableRow>
@@ -296,7 +278,7 @@ export default function YieldRulesPage() {
                   )}
                   {filtered.map((rule) => (
                     <TableRow key={rule.id}>
-                      <TableCell className={bodyCell}>
+                      <TableCell className={tableBodyCell}>
                         <StatusToggle
                           active={rule.status === "active"}
                           onClick={() =>
@@ -305,23 +287,23 @@ export default function YieldRulesPage() {
                         />
                       </TableCell>
                       <TableCell
-                        className={`${bodyCell} font-medium text-gray-900 dark:text-white/90`}
+                        className={`${tableBodyCell} font-medium text-gray-900 dark:text-white/90`}
                       >
                         {rule.name}
                       </TableCell>
-                      <TableCell className={bodyCell}>
+                      <TableCell className={tableBodyCell}>
                         {ruleTypeLabel(rule.rule_type)}
                       </TableCell>
-                      <TableCell className={bodyCell}>
+                      <TableCell className={tableBodyCell}>
                         {roomTypeLabel(rule.room_type_slug, room_types)}
                       </TableCell>
-                      <TableCell className={`${bodyCell} tabular-nums`}>
+                      <TableCell className={`${tableBodyCell} tabular-nums`}>
                         {formatRuleDates(rule.date_from, rule.date_to)}
                       </TableCell>
-                      <TableCell className={`${bodyCell} font-semibold`}>
+                      <TableCell className={`${tableBodyCell} font-semibold`}>
                         {ruleValueLabel(rule)}
                       </TableCell>
-                      <TableCell className={bodyCell}>
+                      <TableCell className={tableBodyCell}>
                         <div className="flex gap-2">
                           <Button
                             size="xs"
@@ -344,9 +326,8 @@ export default function YieldRulesPage() {
                 </TableBody>
               </Table>
             </div>
-          </div>
-        </div>
-      </div>
+          </SurfaceCard>
+      </TwoColumnLayout>
 
       <Modal isOpen={modal.isOpen} onClose={modal.closeModal} className="max-w-lg p-6">
         <h4 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">
@@ -448,6 +429,6 @@ export default function YieldRulesPage() {
           </div>
         </form>
       </Modal>
-    </div>
+    </PageShell>
   );
 }

@@ -13,6 +13,7 @@ import ReservationDetailDialog, {
 } from "@/components/reservations/ReservationDetailDialog";
 import { Alert } from "@/components/form";
 import Button from "@/components/ui/button/Button";
+import { PageShell } from "@/components/ui/layout";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
 import {
@@ -89,7 +90,7 @@ export default function DashboardPage() {
     });
 
   return (
-    <div>
+    <PageShell>
       <PageHeader
         title="Daily operations"
         description="Everything the front desk needs to start the day."
@@ -185,6 +186,6 @@ export default function DashboardPage() {
         roomTypes={room_types}
         onAction={onAction}
       />
-    </div>
+    </PageShell>
   );
 }

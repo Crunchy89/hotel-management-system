@@ -1,11 +1,16 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
+import { routeLabel, routeSection } from "@/lib/navigation";
 import { useSidebar } from "@/context/SidebarContext";
 
 const AppHeader: React.FC = () => {
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const pathname = usePathname();
+  const section = routeSection(pathname);
+  const page = routeLabel(pathname);
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -16,12 +21,12 @@ const AppHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-99999 flex w-full border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:border-b">
-      <div className="flex w-full items-center justify-between gap-2 px-3 py-3 lg:px-6 lg:py-4">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-99999 border-b border-gray-200/80 bg-white/90 backdrop-blur-md dark:border-gray-800 dark:bg-gray-900/90">
+      <div className="flex w-full items-center justify-between gap-2 px-3 py-3 lg:px-6 lg:py-3.5">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border-gray-200 text-gray-500 dark:border-gray-800 dark:text-gray-400 lg:h-11 lg:w-11 lg:border"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.04] lg:h-10 lg:w-10"
             onClick={handleToggle}
             aria-label="Toggle sidebar"
           >
@@ -58,18 +63,28 @@ const AppHeader: React.FC = () => {
             )}
           </button>
 
-          <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            Front Desk
-          </span>
+          <nav
+            aria-label="Breadcrumb"
+            className="hidden min-w-0 items-center gap-2 text-theme-sm sm:flex"
+          >
+            <span className="shrink-0 font-medium text-gray-400 dark:text-gray-500">
+              {section}
+            </span>
+            <span className="shrink-0 text-gray-300 dark:text-gray-600">/</span>
+            <span className="truncate font-semibold text-gray-800 dark:text-white/90">
+              {page}
+            </span>
+          </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <ThemeToggleButton />
-          <div className="flex items-center gap-3">
-            <span className="hidden text-sm font-medium text-gray-700 dark:text-gray-300 sm:block">
+          <div className="hidden h-6 w-px bg-gray-200 dark:bg-gray-800 sm:block" />
+          <div className="flex items-center gap-2.5">
+            <span className="hidden text-theme-sm font-medium text-gray-600 dark:text-gray-300 md:block">
               Reception
             </span>
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-500 dark:bg-brand-500/15 dark:text-brand-400">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-theme-xs font-semibold text-brand-600 ring-2 ring-white dark:bg-brand-500/15 dark:text-brand-400 dark:ring-gray-900">
               RC
             </span>
           </div>

@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PageShell } from "@/components/ui/layout";
 import {
   addDays,
   dailyMetrics,
@@ -65,7 +66,7 @@ export default function InsightsPage() {
   );
 
   return (
-    <div>
+    <PageShell>
       <PageHeader
         title="Insights"
         description="Occupancy and revenue performance across your property."
@@ -224,6 +225,6 @@ export default function InsightsPage() {
           </div>
         </ComponentCard>
       </div>
-    </div>
+    </PageShell>
   );
 }

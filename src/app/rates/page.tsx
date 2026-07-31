@@ -8,15 +8,23 @@ import {
   formatRateDate,
   packageOptionsForType,
 } from "@/components/rates/ratesUtils";
-import { Alert, inputClass } from "@/components/form";
+import PageHeader from "@/components/common/PageHeader";
+import { Alert, inputClass, selectClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
+import {
+  FilterField,
+  PageShell,
+  SidePanel,
+  SidePanelItem,
+  SidePanelLinkItem,
+  SurfaceCard,
+  TwoColumnLayout,
+} from "@/components/ui/layout";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
 import { addDays, todayISO } from "@/lib/metrics";
 import type { BulkRateUpdateInput } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
-
-const selectClass = inputClass;
 
 export default function RatesPage() {
   const {
@@ -97,115 +105,78 @@ export default function RatesPage() {
     mutate(() => api.bulkUpdateRates(input));
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-title-md font-semibold text-gray-800 dark:text-white/90">
-            Rooms &amp; Prices
-          </h1>
-          <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-            Control room rates and availability by room type.
-          </p>
-        </div>
-        <Button size="sm" onClick={bulkModal.openModal}>
-          Bulk update
-        </Button>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Rooms & Prices"
+        description="Control room rates and availability by room type."
+        action={
+          <Button size="sm" onClick={bulkModal.openModal}>
+            Bulk update
+          </Button>
+        }
+      />
 
       {error && <Alert>{error}</Alert>}
 
-      <div className="flex flex-col gap-6 xl:flex-row">
-        {/* Left panel */}
-        <aside className="w-full shrink-0 xl:w-64">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Room types
-            </h2>
-            <ul className="space-y-1">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTypeFilter("all");
-                    setPackageFilter("all");
-                  }}
-                  className={`flex w-full rounded-lg px-3 py-2.5 text-left text-theme-sm transition ${
-                    typeFilter === "all"
-                      ? "bg-brand-500 text-white shadow-theme-xs"
-                      : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]"
-                  }`}
-                >
-                  All types
-                </button>
-              </li>
-              {room_types.map((type) => (
-                <li key={type.id}>
-                  <button
-                    type="button"
+      <TwoColumnLayout
+        sidebar={
+          <>
+            <SidePanel title="Room types">
+              <ul className="space-y-1">
+                <li>
+                  <SidePanelItem
+                    active={typeFilter === "all"}
                     onClick={() => {
-                      setTypeFilter(type.slug);
+                      setTypeFilter("all");
                       setPackageFilter("all");
                     }}
-                    className={`flex w-full rounded-lg px-3 py-2.5 text-left text-theme-sm transition ${
-                      typeFilter === type.slug
-                        ? "bg-brand-500 text-white shadow-theme-xs"
-                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]"
-                    }`}
-                  >
-                    {type.label}
-                  </button>
+                    label="All types"
+                  />
                 </li>
-              ))}
-            </ul>
-          </div>
+                {room_types.map((type) => (
+                  <li key={type.id}>
+                    <SidePanelItem
+                      active={typeFilter === type.slug}
+                      onClick={() => {
+                        setTypeFilter(type.slug);
+                        setPackageFilter("all");
+                      }}
+                      label={type.label}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </SidePanel>
 
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Rate plans
-            </h2>
-            <ul className="space-y-1">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setPackageFilter("all")}
-                  className={`w-full rounded-lg px-3 py-2 text-left text-theme-xs transition ${
-                    packageFilter === "all"
-                      ? "font-semibold text-brand-600 dark:text-brand-400"
-                      : "text-gray-600 hover:text-gray-900 dark:text-gray-400"
-                  }`}
-                >
-                  All rate plans
-                </button>
-              </li>
-              {packageOptions.map((plan) => (
-                <li key={plan.id}>
-                  <button
-                    type="button"
-                    onClick={() => setPackageFilter(plan.id)}
-                    className={`w-full rounded-lg px-3 py-2 text-left text-theme-xs transition ${
-                      packageFilter === plan.id
-                        ? "font-semibold text-brand-600 dark:text-brand-400"
-                        : "text-gray-600 hover:text-gray-900 dark:text-gray-400"
-                    }`}
-                  >
-                    {plan.label}
-                  </button>
+            <SidePanel title="Rate plans">
+              <ul className="space-y-1">
+                <li>
+                  <SidePanelLinkItem
+                    active={packageFilter === "all"}
+                    onClick={() => setPackageFilter("all")}
+                    label="All rate plans"
+                  />
                 </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
-
-        {/* Main grid */}
-        <div className="min-w-0 flex-1">
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                {packageOptions.map((plan) => (
+                  <li key={plan.id}>
+                    <SidePanelLinkItem
+                      active={packageFilter === plan.id}
+                      onClick={() => setPackageFilter(plan.id)}
+                      label={plan.label}
+                      compact
+                    />
+                  </li>
+                ))}
+              </ul>
+            </SidePanel>
+          </>
+        }
+      >
+          <SurfaceCard className="overflow-hidden">
             <div className="border-b border-gray-200 p-5 dark:border-gray-800">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div>
-                    <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                      View by
-                    </label>
+                  <FilterField label="View by">
                     <select
                       className={selectClass}
                       value={viewBy}
@@ -216,11 +187,8 @@ export default function RatesPage() {
                       <option value="rate">Rate</option>
                       <option value="availability">Availability</option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                      Room type
-                    </label>
+                  </FilterField>
+                  <FilterField label="Room type">
                     <select
                       className={selectClass}
                       value={typeFilter}
@@ -236,11 +204,8 @@ export default function RatesPage() {
                         </option>
                       ))}
                     </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                      Rate plan
-                    </label>
+                  </FilterField>
+                  <FilterField label="Rate plan">
                     <select
                       className={selectClass}
                       value={packageFilter}
@@ -253,7 +218,7 @@ export default function RatesPage() {
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </FilterField>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -391,9 +356,8 @@ export default function RatesPage() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      </div>
+          </SurfaceCard>
+      </TwoColumnLayout>
 
       <BulkRateModal
         isOpen={bulkModal.isOpen}
@@ -403,6 +367,6 @@ export default function RatesPage() {
         defaultDate={startDate}
         onApply={onBulkApply}
       />
-    </div>
+    </PageShell>
   );
 }

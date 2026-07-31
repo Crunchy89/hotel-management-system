@@ -16,7 +16,7 @@ export default function AdminShell({
   const mainContentMargin = isMobileOpen
     ? "ml-0"
     : isExpanded || isHovered
-      ? "lg:ml-[290px]"
+      ? "lg:ml-[260px]"
       : "lg:ml-[90px]";
 
   return (
@@ -27,8 +27,10 @@ export default function AdminShell({
         className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
       >
         <AppHeader />
-        <div className="mx-auto max-w-(--breakpoint-2xl) p-4 md:p-6">
-          {children}
+        <div className="hms-page-bg min-h-[calc(100vh-4rem)]">
+          <div className="mx-auto max-w-(--breakpoint-2xl) p-4 md:p-6">
+            {children}
+          </div>
         </div>
       </div>
     </div>

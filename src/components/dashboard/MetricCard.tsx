@@ -25,16 +25,18 @@ const MetricCard: React.FC<MetricCardProps> = ({
   tone = "brand",
   icon,
 }) => (
-  <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+  <div className="group hms-surface p-5 transition hover:shadow-theme-sm md:p-6">
     <div
-      className={`flex h-12 w-12 items-center justify-center rounded-xl ${toneClasses[tone]}`}
+      className={`flex h-11 w-11 items-center justify-center rounded-xl transition group-hover:scale-105 ${toneClasses[tone]}`}
     >
-      {icon ?? <span className="text-lg font-semibold">{label.charAt(0)}</span>}
+      {icon ?? <span className="text-base font-semibold">{label.charAt(0)}</span>}
     </div>
 
-    <div className="mt-5">
-      <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
-      <h4 className="mt-2 text-title-sm font-bold text-gray-800 tabular-nums dark:text-white/90">
+    <div className="mt-4">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        {label}
+      </span>
+      <h4 className="mt-1.5 text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white/90">
         {value}
       </h4>
       {hint && (

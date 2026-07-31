@@ -20,8 +20,17 @@ import {
   groupRowsByDate,
   type ReservationFilters,
 } from "@/components/reservations/reservationListUtils";
-import { Alert } from "@/components/form";
+import { Alert, inputClass, selectClass } from "@/components/form";
+import PageHeader from "@/components/common/PageHeader";
 import Button from "@/components/ui/button/Button";
+import {
+  FilterField,
+  FilterPanel,
+  PageShell,
+  SurfaceCard,
+  tableBodyCell,
+  tableHeaderCell,
+} from "@/components/ui/layout";
 import {
   Table,
   TableBody,
@@ -34,14 +43,6 @@ import { api } from "@/lib/api";
 import { addDays, formatCurrency, todayISO } from "@/lib/metrics";
 import type { Reservation } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
-
-const filterInputClass =
-  "h-10 w-full rounded-md border border-gray-600 bg-gray-700 px-3 text-sm text-white placeholder:text-gray-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
-const filterSelectClass = filterInputClass;
-const headerCell =
-  "whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400";
-const bodyCell =
-  "whitespace-nowrap px-3 py-2.5 text-theme-xs text-gray-700 dark:text-gray-300";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All" },
@@ -71,23 +72,6 @@ function Occupants({
       <span title="Adults">👤 {adults}</span>
       {children > 0 && <span title="Children">🧒 {children}</span>}
       {infants > 0 && <span title="Infants">👶 {infants}</span>}
-    </div>
-  );
-}
-
-function FilterField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-300">
-        {label}
-      </label>
-      {children}
     </div>
   );
 }
@@ -170,27 +154,23 @@ export default function ReservationsPage() {
     });
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-title-md font-semibold text-gray-800 dark:text-white/90">
-          Reservations
-        </h1>
-        <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-          Search and manage bookings across all channels.
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Reservations"
+        description="Search and manage bookings across all channels."
+        action={
+          <Button size="sm" onClick={openCreate}>
+            + Create reservation
+          </Button>
+        }
+      />
 
       {error && <Alert>{error}</Alert>}
 
-      {/* Filter panel */}
-      <form
-        onSubmit={onSearch}
-        className="mb-0 rounded-t-2xl bg-gray-800 px-5 py-5 dark:bg-gray-900"
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <FilterPanel onSubmit={onSearch} action={<Button size="sm" type="submit">Search</Button>}>
           <FilterField label="Guest last name">
             <input
-              className={filterInputClass}
+              className={inputClass}
               placeholder="e.g. Davis"
               value={draftFilters.lastName}
               onChange={(e) => patchDraft({ lastName: e.target.value })}
@@ -198,7 +178,7 @@ export default function ReservationsPage() {
           </FilterField>
           <FilterField label="Booking reference">
             <input
-              className={filterInputClass}
+              className={inputClass}
               placeholder="Reference code"
               value={draftFilters.reference}
               onChange={(e) => patchDraft({ reference: e.target.value })}
@@ -206,7 +186,7 @@ export default function ReservationsPage() {
           </FilterField>
           <FilterField label="Invoice number">
             <input
-              className={filterInputClass}
+              className={inputClass}
               placeholder="Invoice or ID"
               value={draftFilters.invoice}
               onChange={(e) => patchDraft({ invoice: e.target.value })}
@@ -214,7 +194,7 @@ export default function ReservationsPage() {
           </FilterField>
           <FilterField label="Date type">
             <select
-              className={filterSelectClass}
+              className={selectClass}
               value={draftFilters.dateType}
               onChange={(e) =>
                 patchDraft({
@@ -232,7 +212,7 @@ export default function ReservationsPage() {
 
           <FilterField label="Status">
             <select
-              className={filterSelectClass}
+              className={selectClass}
               value={draftFilters.status}
               onChange={(e) => patchDraft({ status: e.target.value })}
             >
@@ -245,7 +225,7 @@ export default function ReservationsPage() {
           </FilterField>
           <FilterField label="Date from">
             <input
-              className={filterInputClass}
+              className={inputClass}
               type="date"
               value={draftFilters.dateFrom}
               onChange={(e) => patchDraft({ dateFrom: e.target.value })}
@@ -253,7 +233,7 @@ export default function ReservationsPage() {
           </FilterField>
           <FilterField label="Date to">
             <input
-              className={filterInputClass}
+              className={inputClass}
               type="date"
               value={draftFilters.dateTo}
               onChange={(e) => patchDraft({ dateTo: e.target.value })}
@@ -261,7 +241,7 @@ export default function ReservationsPage() {
           </FilterField>
           <FilterField label="Source">
             <select
-              className={filterSelectClass}
+              className={selectClass}
               value={draftFilters.source}
               onChange={(e) => patchDraft({ source: e.target.value })}
             >
@@ -273,38 +253,25 @@ export default function ReservationsPage() {
               ))}
             </select>
           </FilterField>
-        </div>
+      </FilterPanel>
 
-        <div className="mt-4 flex justify-end">
-          <Button size="sm" type="submit">
-            Search
-          </Button>
-        </div>
-      </form>
-
-      {/* Results */}
-      <div className="rounded-b-2xl border border-t-0 border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-800">
-          <p className="text-sm font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">
-            {filteredRows.length} reservation
-            {filteredRows.length === 1 ? "" : "s"} found
+      <SurfaceCard className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6">
+          <p className="text-theme-sm font-semibold text-gray-800 dark:text-white/90">
+            <span className="text-brand-600 dark:text-brand-400">
+              {filteredRows.length}
+            </span>{" "}
+            reservation{filteredRows.length === 1 ? "" : "s"} found
           </p>
-          <div className="flex items-center gap-4 text-theme-sm">
-            <button
-              type="button"
-              onClick={openCreate}
-              className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
-            >
-              + Create reservation
-            </button>
-            <button
-              type="button"
+          <div className="flex items-center gap-2">
+            <Button
+              size="xs"
+              variant="ghost"
               onClick={() => exportReservationsCsv(filteredRows)}
               disabled={filteredRows.length === 0}
-              className="font-medium text-gray-600 hover:text-gray-800 disabled:opacity-40 dark:text-gray-400 dark:hover:text-gray-200"
             >
-              Export
-            </button>
+              Export CSV
+            </Button>
           </div>
         </div>
 
@@ -312,43 +279,43 @@ export default function ReservationsPage() {
           <Table>
             <TableHeader className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
               <TableRow>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Status
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Name
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Reference
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Source
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Occupants
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Check-in
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Check-out
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Booked
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   ETA
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Room
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Total
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Amount due
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Invoice
                 </TableCell>
               </TableRow>
@@ -389,10 +356,10 @@ export default function ReservationsPage() {
                         key={r.id}
                         className="border-b border-gray-100 hover:bg-gray-50/80 dark:border-gray-800 dark:hover:bg-white/[0.02]"
                       >
-                        <TableCell className={bodyCell}>
+                        <TableCell className={tableBodyCell}>
                           <ReservationStatusBadge status={r.status} />
                         </TableCell>
-                        <TableCell className={bodyCell}>
+                        <TableCell className={tableBodyCell}>
                           <button
                             type="button"
                             onClick={() => openReservation(r)}
@@ -401,7 +368,7 @@ export default function ReservationsPage() {
                             {displayName}
                           </button>
                         </TableCell>
-                        <TableCell className={bodyCell}>
+                        <TableCell className={tableBodyCell}>
                           <button
                             type="button"
                             onClick={() => openReservation(r)}
@@ -410,40 +377,40 @@ export default function ReservationsPage() {
                             {displayReference}
                           </button>
                         </TableCell>
-                        <TableCell className={bodyCell}>
+                        <TableCell className={tableBodyCell}>
                           {r.booking_source ?? "Direct"}
                         </TableCell>
-                        <TableCell className={bodyCell}>
+                        <TableCell className={tableBodyCell}>
                           <Occupants
                             adults={r.adults ?? 1}
                             children={r.children ?? 0}
                             infants={r.infants ?? 0}
                           />
                         </TableCell>
-                        <TableCell className={`${bodyCell} tabular-nums`}>
+                        <TableCell className={`${tableBodyCell} tabular-nums`}>
                           {formatShortDate(r.check_in)}
                         </TableCell>
-                        <TableCell className={`${bodyCell} tabular-nums`}>
+                        <TableCell className={`${tableBodyCell} tabular-nums`}>
                           {formatShortDate(r.check_out)}
                         </TableCell>
-                        <TableCell className={`${bodyCell} tabular-nums`}>
+                        <TableCell className={`${tableBodyCell} tabular-nums`}>
                           {formatShortDate(r.created_at.slice(0, 10))}
                         </TableCell>
-                        <TableCell className={`${bodyCell} tabular-nums`}>
+                        <TableCell className={`${tableBodyCell} tabular-nums`}>
                           {r.arrival_time || "—"}
                         </TableCell>
-                        <TableCell className={bodyCell}>
+                        <TableCell className={tableBodyCell}>
                           {r.room_number ?? "—"}
                         </TableCell>
-                        <TableCell className={`${bodyCell} tabular-nums`}>
+                        <TableCell className={`${tableBodyCell} tabular-nums`}>
                           {formatCurrency(total)}
                         </TableCell>
                         <TableCell
-                          className={`${bodyCell} tabular-nums font-semibold text-error-600 dark:text-error-400`}
+                          className={`${tableBodyCell} tabular-nums font-semibold text-error-600 dark:text-error-400`}
                         >
                           {formatCurrency(amountDue)}
                         </TableCell>
-                        <TableCell className={bodyCell}>
+                        <TableCell className={tableBodyCell}>
                           {r.amount_paid && r.amount_paid > 0 ? (
                             <span className="text-brand-600 dark:text-brand-400">
                               Paid
@@ -460,7 +427,7 @@ export default function ReservationsPage() {
             </TableBody>
           </Table>
         </div>
-      </div>
+      </SurfaceCard>
 
       {draft && (
         <ReservationDialog
@@ -484,6 +451,6 @@ export default function ReservationsPage() {
         roomTypes={room_types}
         onAction={onAction}
       />
-    </div>
+    </PageShell>
   );
 }

@@ -22,6 +22,7 @@ import ReservationDialog, {
 import { formToCreateInput } from "@/components/reservations/reservationFormUtils";
 import { Alert } from "@/components/form";
 import Button from "@/components/ui/button/Button";
+import { PageShell, SegmentTabs } from "@/components/ui/layout";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
 import { addDays, formatDate, isActive, todayISO } from "@/lib/metrics";
@@ -173,27 +174,19 @@ const BookingCalendar: React.FC = () => {
   const rangeLabel = `${formatDate(start)} – ${formatDate(addDays(start, days - 1))}`;
 
   return (
-    <div>
+    <PageShell>
       <PageHeader
         title="Booking calendar"
         description="Click an open night to create a booking, or a stay to manage it."
         action={
-          <div className="flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900">
-            {(["timeline", "month"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setView(v)}
-                className={`rounded-md px-4 py-2 text-theme-sm font-medium capitalize transition ${
-                  view === v
-                    ? "bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white"
-                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
-                }`}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
+          <SegmentTabs
+            tabs={[
+              { id: "timeline" as const, label: "Timeline" },
+              { id: "month" as const, label: "Month" },
+            ]}
+            value={view}
+            onChange={setView}
+          />
         }
       />
 
@@ -328,7 +321,7 @@ const BookingCalendar: React.FC = () => {
         onSave={onSaveRoomType}
         onDelete={editingRoomType ? onDeleteRoomType : undefined}
       />
-    </div>
+    </PageShell>
   );
 };
 

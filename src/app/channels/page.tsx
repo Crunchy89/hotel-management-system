@@ -1,8 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import PageHeader from "@/components/common/PageHeader";
 import { Alert, inputClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
+import {
+  EmptyState,
+  FilterToolbar,
+  PageShell,
+  UnderlineTabs,
+} from "@/components/ui/layout";
 import { BoltIcon, MoreDotIcon, PlugInIcon } from "@/icons";
 import { api } from "@/lib/api";
 import type { Channel, ChannelStatus } from "@/lib/types";
@@ -198,43 +205,24 @@ export default function ChannelsPage() {
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-title-md font-semibold text-gray-800 dark:text-white/90">
-          Channels
-        </h1>
-        <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-          Manage OTA connections, sync settings, and rate mappings.
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Channels"
+        description="Manage OTA connections, sync settings, and rate mappings."
+      />
 
       {error && <Alert>{error}</Alert>}
 
-      {/* Tabs */}
-      <div className="mb-6 flex gap-6 border-b border-gray-200 dark:border-gray-800">
-        {(
-          [
-            ["mine", `My channels (${mine.length})`],
-            ["all", `All channels (${allCount})`],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`-mb-px border-b-2 pb-3 text-theme-sm font-semibold transition ${
-              tab === key
-                ? "border-brand-500 text-brand-600 dark:text-brand-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <UnderlineTabs
+        tabs={[
+          { id: "mine" as Tab, label: `My channels (${mine.length})` },
+          { id: "all" as Tab, label: `All channels (${allCount})` },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
 
-      {/* Toolbar */}
-      <div className="mb-5 flex flex-wrap items-center gap-3">
+      <FilterToolbar>
         <div className="relative min-w-[220px] flex-1 sm:max-w-md">
           <input
             className={`${inputClass} pl-10`}
@@ -260,7 +248,7 @@ export default function ChannelsPage() {
         <button
           type="button"
           onClick={clearFilters}
-          className="text-theme-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+          className="text-theme-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
         >
           Clear all
         </button>
@@ -275,16 +263,14 @@ export default function ChannelsPage() {
             {reorderMode ? "Done reordering" : "Reorder"}
           </Button>
         )}
-      </div>
+      </FilterToolbar>
 
-      {/* List */}
       <div className="space-y-3">
         {filtered.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-gray-200 px-6 py-16 text-center dark:border-gray-800">
-            <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-              No channels match your search.
-            </p>
-          </div>
+          <EmptyState
+            title="No channels found"
+            description="Try adjusting your search or status filter."
+          />
         )}
         {filtered.map((channel) => (
           <ChannelRow
@@ -302,6 +288,6 @@ export default function ChannelsPage() {
           />
         ))}
       </div>
-    </div>
+    </PageShell>
   );
 }
