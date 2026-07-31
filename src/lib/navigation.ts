@@ -23,9 +23,9 @@ export function routeLabel(pathname: string): string {
 export function routeSection(pathname: string): string {
   if (pathname === "/") return "Dashboard";
   if (pathname.startsWith("/insights")) return "Insights";
+  if (pathname.startsWith("/check-in")) return "Report";
   if (
     [
-      "/check-in",
       "/calendar",
       "/reservations",
       "/housekeeping",

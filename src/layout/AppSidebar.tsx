@@ -26,13 +26,17 @@ const navSections: NavSection[] = [
     id: "operational",
     title: "Operational",
     items: [
-      { name: "Check-In", path: "/check-in" },
       { name: "Calendar", path: "/calendar" },
       { name: "Reservations", path: "/reservations" },
       { name: "Housekeeping", path: "/housekeeping" },
       { name: "Guests", path: "/guests" },
       { name: "Rooms", path: "/rooms" },
     ],
+  },
+  {
+    id: "report",
+    title: "Report",
+    items: [{ name: "Check-In", path: "/check-in" }],
   },
   {
     id: "strategic",
@@ -139,6 +143,7 @@ const AppSidebar: React.FC = () => {
     Record<string, boolean>
   >({
     operational: true,
+    report: false,
     strategic: false,
   });
 
