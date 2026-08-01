@@ -2,10 +2,14 @@
 
 import React, { useMemo, useState } from "react";
 import { ReservationStatusBadge } from "@/components/StatusBadge";
+import FolioTab from "@/components/reservations/FolioTab";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
+import { api } from "@/lib/api";
+import { folioBalance } from "@/lib/folio";
 import { dayDiff, formatDate } from "@/lib/metrics";
 import type { Guest, Reservation, Room, RoomTypeRecord } from "@/lib/types";
+import { useHotelData } from "@/lib/useHotelData";
 import {
   type ReservationTab,
   bookingTotals,
@@ -19,6 +23,7 @@ export type ReservationAction = "checkin" | "checkout" | "cancel";
 const TABS: { id: ReservationTab; label: string }[] = [
   { id: "details", label: "Details" },
   { id: "guest", label: "Guest" },
+  { id: "folio", label: "Folio" },
   { id: "notes", label: "Notes" },
 ];
 
@@ -60,10 +65,19 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
   onAction,
 }) => {
   const [tab, setTab] = useState<ReservationTab>("details");
+  const { folio_lines, mutate } = useHotelData();
 
   const form = useMemo(
     () => (reservation ? reservationToForm(reservation, guest ?? undefined) : null),
     [reservation, guest],
+  );
+
+  const lines = useMemo(
+    () =>
+      reservation
+        ? folio_lines.filter((l) => l.reservation_id === reservation.id)
+        : [],
+    [folio_lines, reservation],
   );
 
   if (!reservation || !form) return null;
@@ -72,6 +86,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
   const isUnallocated = !reservation.room_id && Boolean(reservation.room_type);
   const nights = Math.max(0, dayDiff(reservation.check_in, reservation.check_out));
   const totals = bookingTotals(form, room, nights);
+  const balance = folioBalance(reservation, room, lines);
   const typeLabel =
     roomTypes.find((t) => t.slug === (reservation.room_type ?? room?.type))
       ?.label ?? reservation.room_type;
@@ -79,6 +94,15 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
   async function run(action: ReservationAction) {
     const ok = await onAction(action, reservation!.id);
     if (ok) onClose();
+  }
+
+  async function sendPreArrival() {
+    await mutate(() =>
+      api.sendGuestMessage({
+        reservation_id: reservation!.id,
+        kind: "pre_arrival",
+      }),
+    );
   }
 
   return (
@@ -157,6 +181,11 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                     <DetailRow label="Reference" value={reservation.reference} />
                   </dl>
                 </section>
+                {reservation.status === "booked" && guest?.email && (
+                  <Button size="sm" variant="outline" onClick={() => void sendPreArrival()}>
+                    Send pre-arrival email
+                  </Button>
+                )}
               </>
             )}
 
@@ -183,6 +212,10 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                   />
                 </dl>
               </section>
+            )}
+
+            {tab === "folio" && (
+              <FolioTab reservation={reservation} room={room} />
             )}
 
             {tab === "notes" && (
@@ -239,27 +272,42 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                   −{formatCurrency(form.discount || 0)}
                 </dd>
               </div>
+              {balance.charges > 0 && (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-gray-500">Folio charges</dt>
+                  <dd className="font-medium tabular-nums">
+                    {formatCurrency(balance.charges)}
+                  </dd>
+                </div>
+              )}
               <div className="border-t border-gray-200 pt-2 dark:border-gray-700">
                 <div className="flex justify-between gap-3">
                   <dt className="font-semibold">Total</dt>
                   <dd className="font-semibold tabular-nums">
-                    {formatCurrency(totals.grandTotal)}
+                    {formatCurrency(balance.total)}
                   </dd>
                 </div>
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-gray-500">Received</dt>
                 <dd className="font-medium tabular-nums">
-                  {formatCurrency(form.amount_paid || 0)}
+                  {formatCurrency(balance.paid)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="font-semibold text-error-600">Amount due</dt>
                 <dd className="font-bold tabular-nums text-error-600">
-                  {formatCurrency(totals.amountDue)}
+                  {formatCurrency(balance.due)}
                 </dd>
               </div>
             </dl>
+            <button
+              type="button"
+              className="mt-4 text-xs font-semibold text-brand-600 hover:underline"
+              onClick={() => setTab("folio")}
+            >
+              Manage folio →
+            </button>
           </aside>
         </div>
 

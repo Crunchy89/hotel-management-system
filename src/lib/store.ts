@@ -1,10 +1,13 @@
 import type {
+  CreateFolioLineInput,
   CreateGuestInput,
   CreateReservationInput,
   CreateRoomInput,
   CreateRoomTypeInput,
   DashboardStats,
+  FolioLine,
   Guest,
+  GuestMessage,
   HousekeepingRecord,
   BulkRateUpdateInput,
   Channel,
@@ -13,6 +16,7 @@ import type {
   Reservation,
   Room,
   RoomTypeRecord,
+  SendGuestMessageInput,
   UpdateChannelInput,
   UpsertRateEntryInput,
   UpdateGuestInput,
@@ -23,6 +27,8 @@ import type {
   UpdateYieldRuleInput,
   YieldRule,
 } from "@/lib/types";
+import { folioBalance, folioPaymentsNet } from "@/lib/folio";
+import { renderMessageTemplate } from "@/lib/messaging";
 
 const STORAGE_KEY = "hms-hotel-data-v3";
 
@@ -36,6 +42,8 @@ type StoreData = {
   rate_entries: RateEntry[];
   channels: Channel[];
   yield_rules: YieldRule[];
+  folio_lines: FolioLine[];
+  guest_messages: GuestMessage[];
 };
 
 const PACKAGE_TEMPLATES: Array<{
@@ -102,7 +110,19 @@ function normalizeData(raw: Partial<StoreData>): StoreData {
       ? raw.room_types
       : deriveRoomTypes(rooms);
 
-  return { rooms, guests, reservations, room_types, housekeeping: raw.housekeeping ?? [], rate_plans: raw.rate_plans ?? [], rate_entries: raw.rate_entries ?? [], channels: raw.channels ?? [], yield_rules: raw.yield_rules ?? [] };
+  return {
+    rooms,
+    guests,
+    reservations,
+    room_types,
+    housekeeping: raw.housekeeping ?? [],
+    rate_plans: raw.rate_plans ?? [],
+    rate_entries: raw.rate_entries ?? [],
+    channels: raw.channels ?? [],
+    yield_rules: raw.yield_rules ?? [],
+    folio_lines: raw.folio_lines ?? [],
+    guest_messages: raw.guest_messages ?? [],
+  };
 }
 
 function avgRateForType(rooms: Room[], typeSlug: string): number {
@@ -467,6 +487,8 @@ function seedData(): StoreData {
     rate_entries: [],
     channels: [],
     yield_rules: [],
+    folio_lines: [],
+    guest_messages: [],
   };
   ensureRatePlans(data);
   ensureChannels(data);
@@ -484,6 +506,8 @@ const EMPTY_DATA: StoreData = {
   rate_entries: [],
   channels: [],
   yield_rules: [],
+  folio_lines: [],
+  guest_messages: [],
 };
 
 /**
@@ -863,6 +887,7 @@ export function createReservation(input: CreateReservationInput): Reservation {
     }
 
     const now = new Date().toISOString();
+    const deposit = input.amount_paid ?? 0;
     const reservation: Reservation = {
       id: uid(),
       guest_id,
@@ -879,15 +904,49 @@ export function createReservation(input: CreateReservationInput): Reservation {
       room_amount: input.room_amount,
       extra_person: input.extra_person ?? 0,
       discount: input.discount ?? 0,
-      amount_paid: input.amount_paid ?? 0,
+      amount_paid: 0,
       hold_rate: input.hold_rate ?? true,
       booking_source: input.booking_source,
       arrival_time: input.arrival_time,
-      reference: input.reference,
+      reference:
+        input.reference?.trim() ||
+        `HMS-${now.slice(0, 10).replace(/-/g, "")}-${uid().slice(0, 4).toUpperCase()}`,
       created_at: now,
       updated_at: now,
     };
     data.reservations.push(reservation);
+
+    if (deposit > 0) {
+      data.folio_lines.push({
+        id: uid(),
+        reservation_id: reservation.id,
+        type: "payment",
+        description: "Deposit / prepayment",
+        amount: Math.round(deposit * 100) / 100,
+        method: "card",
+        created_at: now,
+      });
+      syncAmountPaid(data, reservation.id);
+    }
+
+    const enriched = enrichReservation(data, reservation);
+    const guest = data.guests.find((g) => g.id === guest_id);
+    if (guest?.email) {
+      const rendered = renderMessageTemplate("confirmation", enriched, guest);
+      data.guest_messages.push({
+        id: uid(),
+        reservation_id: reservation.id,
+        guest_id: guest_id!,
+        kind: "confirmation",
+        channel: "email",
+        subject: rendered.subject,
+        body: rendered.body,
+        status: "sent",
+        sent_at: now,
+        created_at: now,
+      });
+    }
+
     return enrichReservation(data, reservation);
   });
 }
@@ -933,10 +992,119 @@ export function checkOut(id: string): Reservation {
     const room = data.rooms.find((r) => r.id === reservation.room_id);
     if (!room) throw new Error("room not found");
 
+    const lines = data.folio_lines.filter((l) => l.reservation_id === id);
+    const { due } = folioBalance(reservation, room, lines);
+    if (due > 0.009) {
+      throw new Error(
+        `settle folio before checkout (amount due ${due.toFixed(2)})`,
+      );
+    }
+
     reservation.status = "checked_out";
     reservation.updated_at = new Date().toISOString();
     room.status = "cleaning";
     return enrichReservation(data, reservation);
+  });
+}
+
+function syncAmountPaid(data: StoreData, reservationId: string) {
+  const reservation = data.reservations.find((r) => r.id === reservationId);
+  if (!reservation) return;
+  const lines = data.folio_lines.filter((l) => l.reservation_id === reservationId);
+  reservation.amount_paid = Math.max(0, folioPaymentsNet(lines));
+  reservation.updated_at = new Date().toISOString();
+}
+
+export function listFolioLines(reservationId?: string): FolioLine[] {
+  const lines = read().folio_lines;
+  const filtered = reservationId
+    ? lines.filter((l) => l.reservation_id === reservationId)
+    : [...lines];
+  return filtered.sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
+
+export function createFolioLine(input: CreateFolioLineInput): FolioLine {
+  const description = input.description.trim();
+  if (!description) throw new Error("description is required");
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    throw new Error("amount must be greater than zero");
+  }
+  if (!["charge", "payment", "refund"].includes(input.type)) {
+    throw new Error("invalid folio line type");
+  }
+
+  return withData((data) => {
+    const reservation = data.reservations.find((r) => r.id === input.reservation_id);
+    if (!reservation) throw new Error("reservation not found");
+    if (reservation.status === "cancelled") {
+      throw new Error("cannot post to a cancelled reservation");
+    }
+
+    const line: FolioLine = {
+      id: uid(),
+      reservation_id: input.reservation_id,
+      type: input.type,
+      description,
+      amount: Math.round(input.amount * 100) / 100,
+      method: input.type === "charge" ? undefined : input.method ?? "card",
+      created_at: new Date().toISOString(),
+    };
+    data.folio_lines.push(line);
+    syncAmountPaid(data, input.reservation_id);
+    return line;
+  });
+}
+
+export function deleteFolioLine(id: string): void {
+  withData((data) => {
+    const idx = data.folio_lines.findIndex((l) => l.id === id);
+    if (idx < 0) throw new Error("folio line not found");
+    const reservationId = data.folio_lines[idx]!.reservation_id;
+    data.folio_lines.splice(idx, 1);
+    syncAmountPaid(data, reservationId);
+  });
+}
+
+export function listGuestMessages(reservationId?: string): GuestMessage[] {
+  const messages = read().guest_messages;
+  const filtered = reservationId
+    ? messages.filter((m) => m.reservation_id === reservationId)
+    : [...messages];
+  return filtered.sort((a, b) =>
+    (b.sent_at ?? b.created_at).localeCompare(a.sent_at ?? a.created_at),
+  );
+}
+
+export function sendGuestMessage(input: SendGuestMessageInput): GuestMessage {
+  return withData((data) => {
+    const reservation = data.reservations.find((r) => r.id === input.reservation_id);
+    if (!reservation) throw new Error("reservation not found");
+    const guest = data.guests.find((g) => g.id === reservation.guest_id);
+
+    let subject = input.subject?.trim() ?? "";
+    let body = input.body?.trim() ?? "";
+    if (input.kind !== "custom") {
+      const rendered = renderMessageTemplate(input.kind, enrichReservation(data, reservation), guest);
+      if (!subject) subject = rendered.subject;
+      if (!body) body = rendered.body;
+    }
+    if (!subject || !body) throw new Error("subject and body are required");
+
+    const now = new Date().toISOString();
+    const message: GuestMessage = {
+      id: uid(),
+      reservation_id: reservation.id,
+      guest_id: reservation.guest_id,
+      kind: input.kind,
+      channel: input.channel ?? "email",
+      subject,
+      body,
+      status: "sent",
+      sent_at: now,
+      created_at: now,
+    };
+    data.guest_messages.push(message);
+    return message;
   });
 }
 
@@ -1297,6 +1465,8 @@ type Snapshot = {
   rate_entries: RateEntry[];
   channels: Channel[];
   yield_rules: YieldRule[];
+  folio_lines: FolioLine[];
+  guest_messages: GuestMessage[];
   stats: DashboardStats;
 };
 
@@ -1310,6 +1480,8 @@ const EMPTY_SNAPSHOT: Snapshot = {
   rate_entries: [],
   channels: [],
   yield_rules: [],
+  folio_lines: [],
+  guest_messages: [],
   stats: {
     available_rooms: 0,
     occupied_rooms: 0,
@@ -1337,6 +1509,8 @@ export function getSnapshot(): Snapshot {
       rate_entries: listRateEntries(),
       channels: listChannels(),
       yield_rules: listYieldRules(),
+      folio_lines: listFolioLines(),
+      guest_messages: listGuestMessages(),
       stats: getDashboardStats(),
     };
     snapshotVersion = version;

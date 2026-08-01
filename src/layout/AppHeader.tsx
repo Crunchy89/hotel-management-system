@@ -21,12 +21,12 @@ const AppHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-99999 border-b border-gray-200/80 bg-white/90 backdrop-blur-md dark:border-gray-800 dark:bg-gray-900/90">
-      <div className="flex w-full items-center justify-between gap-2 px-3 py-3 lg:px-6 lg:py-3.5">
+    <header className="sticky top-0 z-30 flex w-full border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex h-16 w-full items-center justify-between gap-3 px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.04] lg:h-10 lg:w-10"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.04] lg:h-11 lg:w-11"
             onClick={handleToggle}
             aria-label="Toggle sidebar"
           >

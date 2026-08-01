@@ -6,7 +6,7 @@ import type {
   Room,
 } from "@/lib/types";
 
-export type ReservationTab = "details" | "guest" | "notes";
+export type ReservationTab = "details" | "guest" | "folio" | "notes";
 
 export type ReservationFormValues = {
   guest_id: string;

@@ -37,6 +37,50 @@ export function coversDate(reservation: Reservation, date: string): boolean {
   return reservation.check_in <= date && reservation.check_out > date;
 }
 
+/** True when two half-open date ranges [aStart, aEnd) and [bStart, bEnd) overlap. */
+export function rangesOverlap(
+  aStart: string,
+  aEnd: string,
+  bStart: string,
+  bEnd: string,
+): boolean {
+  return aStart < bEnd && aEnd > bStart;
+}
+
+/**
+ * A room is free for [checkIn, checkOut) when it is not under maintenance and
+ * has no booked / checked-in stay that overlaps the requested nights.
+ */
+export function isRoomAvailableForDates(
+  room: Room,
+  reservations: Reservation[],
+  checkIn: string,
+  checkOut: string,
+): boolean {
+  if (!checkIn || !checkOut || checkOut <= checkIn) return false;
+  if (room.status === "maintenance") return false;
+
+  return !reservations.some(
+    (r) =>
+      r.room_id === room.id &&
+      (r.status === "booked" || r.status === "checked_in") &&
+      rangesOverlap(r.check_in, r.check_out, checkIn, checkOut),
+  );
+}
+
+export function availableRoomsForDates(
+  rooms: Room[],
+  reservations: Reservation[],
+  checkIn: string,
+  checkOut: string,
+  typeSlug?: string,
+): Room[] {
+  return rooms.filter((room) => {
+    if (typeSlug && room.type !== typeSlug) return false;
+    return isRoomAvailableForDates(room, reservations, checkIn, checkOut);
+  });
+}
+
 export function formatDate(iso: string, opts?: Intl.DateTimeFormatOptions) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(
     undefined,

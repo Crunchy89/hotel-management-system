@@ -253,3 +253,55 @@ export interface CreateYieldRuleInput {
 export interface UpdateYieldRuleInput extends CreateYieldRuleInput {
   id: string;
 }
+
+/** Folio line on a reservation (Little Hotelier / Cloudbeds-style payments). */
+export type FolioLineType = "charge" | "payment" | "refund";
+export type FolioPaymentMethod = "cash" | "card" | "transfer" | "other";
+
+export interface FolioLine {
+  id: string;
+  reservation_id: string;
+  type: FolioLineType;
+  description: string;
+  /** Always positive; sign comes from `type`. */
+  amount: number;
+  method?: FolioPaymentMethod;
+  created_at: string;
+}
+
+export interface CreateFolioLineInput {
+  reservation_id: string;
+  type: FolioLineType;
+  description: string;
+  amount: number;
+  method?: FolioPaymentMethod;
+}
+
+export type MessageKind =
+  | "confirmation"
+  | "pre_arrival"
+  | "thank_you"
+  | "custom";
+
+export type MessageChannel = "email" | "sms";
+
+export interface GuestMessage {
+  id: string;
+  reservation_id: string;
+  guest_id: string;
+  kind: MessageKind;
+  channel: MessageChannel;
+  subject: string;
+  body: string;
+  status: "draft" | "sent";
+  sent_at?: string;
+  created_at: string;
+}
+
+export interface SendGuestMessageInput {
+  reservation_id: string;
+  kind: MessageKind;
+  channel?: MessageChannel;
+  subject?: string;
+  body?: string;
+}

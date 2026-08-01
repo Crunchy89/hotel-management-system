@@ -22,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${outfit.variable} dark:bg-gray-900`}>
+      <body className={`${outfit.variable} min-h-screen w-full overflow-x-hidden dark:bg-gray-900`}>
         <ThemeProvider>
           <SidebarProvider>
             <AdminShell>{children}</AdminShell>

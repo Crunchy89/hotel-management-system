@@ -6,7 +6,11 @@ import PageHeader from "@/components/common/PageHeader";
 import { RoomStatusBadge } from "@/components/StatusBadge";
 import { Alert, Field, inputClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
-import { PageShell } from "@/components/ui/layout";
+import {
+  PageShell,
+  tableBodyCell,
+  tableHeaderCell,
+} from "@/components/ui/layout";
 import { Modal } from "@/components/ui/modal";
 import {
   Table,
@@ -19,10 +23,6 @@ import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
 import type { Room } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
-
-const headerCell =
-  "px-5 py-3 text-left text-theme-xs font-medium uppercase text-gray-500 dark:text-gray-400";
-const bodyCell = "px-5 py-4 text-theme-sm text-gray-700 dark:text-gray-300";
 
 const emptyForm = {
   number: "",
@@ -41,7 +41,10 @@ export default function RoomsPage() {
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      type: room_types[0]?.slug ?? "standard",
+    });
     openModal();
   }
 
@@ -78,10 +81,13 @@ export default function RoomsPage() {
     await mutate(() => api.setRoomStatus(id, status));
   }
 
+  const typeLabel = (slug: string) =>
+    room_types.find((t) => t.slug === slug)?.label ?? slug;
+
   return (
     <PageShell>
       <PageHeader
-        title="Rooms"
+        title="Manage Room"
         description="Inventory, rates, and housekeeping status."
         action={
           <Button size="sm" onClick={openCreate}>
@@ -100,22 +106,22 @@ export default function RoomsPage() {
           <Table>
             <TableHeader className="border-b border-gray-100 dark:border-gray-800">
               <TableRow>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Number
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Type
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Floor
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Rate
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Status
                 </TableCell>
-                <TableCell isHeader className={headerCell}>
+                <TableCell isHeader className={tableHeaderCell}>
                   Actions
                 </TableCell>
               </TableRow>
@@ -134,24 +140,23 @@ export default function RoomsPage() {
               {rooms.map((room) => (
                 <TableRow key={room.id}>
                   <TableCell
-                    className={`${bodyCell} font-semibold text-gray-800 dark:text-white/90`}
+                    className={`${tableBodyCell} font-semibold text-gray-800 dark:text-white/90`}
                   >
                     {room.number}
                   </TableCell>
-                  <TableCell className={bodyCell}>
-                    {room_types.find((t) => t.slug === room.type)?.label ??
-                      room.type}
+                  <TableCell className={tableBodyCell}>
+                    {typeLabel(room.type)}
                   </TableCell>
-                  <TableCell className={`${bodyCell} tabular-nums`}>
+                  <TableCell className={`${tableBodyCell} tabular-nums`}>
                     {room.floor}
                   </TableCell>
-                  <TableCell className={`${bodyCell} tabular-nums`}>
+                  <TableCell className={`${tableBodyCell} tabular-nums`}>
                     ${room.rate.toFixed(2)}
                   </TableCell>
-                  <TableCell className={bodyCell}>
+                  <TableCell className={tableBodyCell}>
                     <RoomStatusBadge status={room.status} />
                   </TableCell>
-                  <TableCell className={bodyCell}>
+                  <TableCell className={tableBodyCell}>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         size="xs"
@@ -196,7 +201,11 @@ export default function RoomsPage() {
         </div>
       </ComponentCard>
 
-      <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[600px] p-6 lg:p-8">
+      <Modal
+        isOpen={isOpen}
+        onClose={closeModal}
+        className="max-w-[600px] p-6 lg:p-8"
+      >
         <h4 className="mb-1 text-theme-xl font-semibold text-gray-800 dark:text-white/90">
           {editing ? "Edit room" : "Add room"}
         </h4>

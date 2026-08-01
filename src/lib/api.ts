@@ -2,19 +2,23 @@ import * as store from "@/lib/store";
 import type {
   BulkRateUpdateInput,
   Channel,
+  CreateFolioLineInput,
   CreateGuestInput,
   CreateReservationInput,
   CreateRoomInput,
   CreateRoomTypeInput,
   CreateYieldRuleInput,
   DashboardStats,
+  FolioLine,
   Guest,
+  GuestMessage,
   HousekeepingRecord,
   RateEntry,
   RatePlan,
   Reservation,
   Room,
   RoomTypeRecord,
+  SendGuestMessageInput,
   UpdateChannelInput,
   UpdateGuestInput,
   UpdateHousekeepingInput,
@@ -63,6 +67,16 @@ export const api = {
     asPromise(() => store.cancelReservation(id)),
   checkIn: (id: string): Promise<Reservation> => asPromise(() => store.checkIn(id)),
   checkOut: (id: string): Promise<Reservation> => asPromise(() => store.checkOut(id)),
+  listFolioLines: (reservationId?: string): Promise<FolioLine[]> =>
+    asPromise(() => store.listFolioLines(reservationId)),
+  createFolioLine: (input: CreateFolioLineInput): Promise<FolioLine> =>
+    asPromise(() => store.createFolioLine(input)),
+  deleteFolioLine: (id: string): Promise<void> =>
+    asPromise(() => store.deleteFolioLine(id)),
+  listGuestMessages: (reservationId?: string): Promise<GuestMessage[]> =>
+    asPromise(() => store.listGuestMessages(reservationId)),
+  sendGuestMessage: (input: SendGuestMessageInput): Promise<GuestMessage> =>
+    asPromise(() => store.sendGuestMessage(input)),
   listHousekeeping: (date?: string): Promise<HousekeepingRecord[]> =>
     asPromise(() => store.listHousekeeping(date)),
   upsertHousekeeping: (input: UpdateHousekeepingInput): Promise<HousekeepingRecord> =>

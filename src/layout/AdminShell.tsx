@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
@@ -11,7 +12,13 @@ export default function AdminShell({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+
+  // Public booking engine — no staff chrome
+  if (pathname.startsWith("/book")) {
+    return <>{children}</>;
+  }
 
   const mainContentMargin = isMobileOpen
     ? "ml-0"
@@ -20,18 +27,14 @@ export default function AdminShell({
       : "lg:ml-[90px]";
 
   return (
-    <div className="min-h-screen xl:flex">
+    <div className="min-h-screen w-full bg-gray-50 xl:flex dark:bg-gray-900">
       <AppSidebar />
       <Backdrop />
       <div
-        className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
+        className={`min-w-0 flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
       >
         <AppHeader />
-        <div className="hms-page-bg min-h-[calc(100vh-4rem)]">
-          <div className="mx-auto max-w-(--breakpoint-2xl) p-4 md:p-6">
-            {children}
-          </div>
-        </div>
+        <div className="w-full p-4 md:p-6">{children}</div>
       </div>
     </div>
   );

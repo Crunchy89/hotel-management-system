@@ -30,7 +30,9 @@ const navSections: NavSection[] = [
       { name: "Reservations", path: "/reservations" },
       { name: "Housekeeping", path: "/housekeeping" },
       { name: "Guests", path: "/guests" },
-      { name: "Rooms", path: "/rooms" },
+      { name: "Manage Room", path: "/rooms" },
+      { name: "Rooms & Prices", path: "/rates" },
+      { name: "Guest messages", path: "/messages" },
     ],
   },
   {
@@ -42,9 +44,9 @@ const navSections: NavSection[] = [
     id: "strategic",
     title: "Strategic",
     items: [
-      { name: "Rooms & Prices", path: "/rates" },
       { name: "Channels", path: "/channels" },
       { name: "Yield Rules", path: "/yield-rules" },
+      { name: "Direct booking", path: "/book" },
     ],
   },
 ];
@@ -158,7 +160,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-50 mt-16 flex h-screen flex-col border-r border-gray-200 bg-gray-50 text-gray-900 transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-900 lg:mt-0
+      className={`fixed left-0 top-0 z-[99999] flex h-screen flex-col border-r border-gray-200 bg-white px-4 text-gray-900 transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-900
         ${isExpanded || isMobileOpen || isHovered ? "w-[260px]" : "w-[90px]"}
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
@@ -166,7 +168,7 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`flex border-b border-gray-200/80 px-5 py-6 dark:border-gray-800 ${
+        className={`flex py-8 ${
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
@@ -175,14 +177,14 @@ const AppSidebar: React.FC = () => {
             H
           </span>
           {showLabels && (
-            <span className="text-lg font-semibold text-gray-800 dark:text-white/90">
+            <span className="text-xl font-semibold text-gray-800 dark:text-white/90">
               HMS Hotel
             </span>
           )}
         </Link>
       </div>
 
-      <div className="no-scrollbar flex flex-1 flex-col overflow-y-auto px-4 pb-8 pt-4 duration-300 ease-linear">
+      <div className="no-scrollbar flex flex-1 flex-col overflow-y-auto pb-8 pt-4 duration-300 ease-linear">
         <nav className="flex flex-col gap-2">
           {showLabels && (
             <ul className="mb-2 flex flex-col gap-0.5 border-b border-gray-200 pb-3 dark:border-gray-800">
