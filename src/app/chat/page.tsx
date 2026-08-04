@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import PageHeader from "@/components/common/PageHeader";
-import { Alert, Field, textareaClass } from "@/components/form";
+import { Alert, Field, selectClass, textareaClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
 import { EmptyState, PageShell, SurfaceCard } from "@/components/ui/layout";
 import { useClientChat } from "@/lib/useClientChat";
@@ -120,9 +120,9 @@ export default function ClientChatPage() {
         description="Live messaging with guests about their stay — questions, requests, and updates."
       />
 
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid gap-8 xl:grid-cols-[320px_minmax(0,1fr)]">
         <SurfaceCard className="flex max-h-[min(720px,calc(100vh-12rem))] flex-col overflow-hidden">
-          <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+          <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-800">
             <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
               Conversations
             </p>
@@ -131,14 +131,14 @@ export default function ClientChatPage() {
             </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
             {threads.length === 0 ? (
-              <p className="px-2 py-4 text-theme-sm text-gray-500">
+              <p className="px-1 py-4 text-theme-sm text-gray-500">
                 No conversations yet. Start one from an active reservation
                 below.
               </p>
             ) : (
-              <ul className="space-y-1">
+              <ul className="space-y-2">
                 {threads.map((thread) => {
                   const active = thread.reservation_id === selectedId;
                   return (
@@ -173,24 +173,23 @@ export default function ClientChatPage() {
             )}
           </div>
 
-          <div className="border-t border-gray-100 p-3 dark:border-gray-800">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-              New conversation
-            </p>
-            <select
-              className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-theme-sm dark:border-gray-700 dark:bg-gray-900"
-              value=""
-              onChange={(e) => {
-                if (e.target.value) startNewChat(e.target.value);
-              }}
-            >
-              <option value="">Select guest / reservation…</option>
-              {activeReservations.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.guest_name} · {r.reference ?? r.id.slice(0, 8)}
-                </option>
-              ))}
-            </select>
+          <div className="mt-2 shrink-0 border-t border-gray-100 px-4 py-5 dark:border-gray-800">
+            <Field label="New conversation">
+              <select
+                className={selectClass}
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) startNewChat(e.target.value);
+                }}
+              >
+                <option value="">Select guest / reservation…</option>
+                {activeReservations.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.guest_name} · {r.reference ?? r.id.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
         </SurfaceCard>
 
