@@ -25,6 +25,7 @@ const DEFAULT_TO = "2025-09-11";
 const CHECK_IN_NAV = [
   { name: "Check-In", path: "#check-in-report" },
   { name: "Check-Out", path: "#check-out-report" },
+  { name: "Booking activity", path: "/booking-activity" },
   { name: "Chat", path: "/chat" },
 ];
 

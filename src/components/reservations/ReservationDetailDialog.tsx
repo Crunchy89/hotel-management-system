@@ -1,14 +1,20 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ReservationStatusBadge } from "@/components/StatusBadge";
 import FolioTab from "@/components/reservations/FolioTab";
+import { PaymentStatusBadge } from "@/components/reservations/PaymentStatusBadge";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
+import { selectClass } from "@/components/form";
 import { api } from "@/lib/api";
 import { folioBalance } from "@/lib/folio";
 import { dayDiff, formatDate } from "@/lib/metrics";
-import type { Guest, Reservation, Room, RoomTypeRecord } from "@/lib/types";
+import {
+  PAYMENT_COLLECT_OPTIONS,
+  resolvePaymentStatus,
+} from "@/lib/paymentStatus";
+import type { Guest, PaymentCollect, Reservation, Room, RoomTypeRecord } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
 import {
   type ReservationTab,
@@ -65,7 +71,15 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
   onAction,
 }) => {
   const [tab, setTab] = useState<ReservationTab>("details");
+  const [paymentCollect, setPaymentCollect] = useState<PaymentCollect>("property");
+  const [savingPayment, setSavingPayment] = useState(false);
   const { folio_lines, mutate } = useHotelData();
+
+  useEffect(() => {
+    if (reservation) {
+      setPaymentCollect(reservation.payment_collect ?? "property");
+    }
+  }, [reservation]);
 
   const form = useMemo(
     () => (reservation ? reservationToForm(reservation, guest ?? undefined) : null),
@@ -87,9 +101,21 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
   const nights = Math.max(0, dayDiff(reservation.check_in, reservation.check_out));
   const totals = bookingTotals(form, room, nights);
   const balance = folioBalance(reservation, room, lines);
+  const paymentStatus = resolvePaymentStatus(reservation, room, lines);
   const typeLabel =
     roomTypes.find((t) => t.slug === (reservation.room_type ?? room?.type))
       ?.label ?? reservation.room_type;
+
+  async function savePaymentCollect() {
+    setSavingPayment(true);
+    await mutate(() =>
+      api.updateReservationPayment({
+        id: reservation!.id,
+        payment_collect: paymentCollect,
+      }),
+    );
+    setSavingPayment(false);
+  }
 
   async function run(action: ReservationAction) {
     const ok = await onAction(action, reservation!.id);
@@ -177,6 +203,12 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                     <DetailRow label="Children" value={reservation.children ?? 0} />
                     <DetailRow label="Infants" value={reservation.infants ?? 0} />
                     <DetailRow label="Booking source" value={reservation.booking_source} />
+                    <DetailRow
+                      label="Payment status"
+                      value={
+                        <PaymentStatusBadge status={paymentStatus} size="sm" />
+                      }
+                    />
                     <DetailRow label="Arrival time" value={reservation.arrival_time} />
                     <DetailRow label="Reference" value={reservation.reference} />
                   </dl>
@@ -185,6 +217,43 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                   <Button size="sm" variant="outline" onClick={() => void sendPreArrival()}>
                     Send pre-arrival email
                   </Button>
+                )}
+                {reservation.status !== "cancelled" && (
+                  <section className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
+                    <h6 className="mb-3 text-xs font-semibold uppercase text-gray-500">
+                      Payment collection
+                    </h6>
+                    <select
+                      className={selectClass}
+                      value={paymentCollect}
+                      onChange={(e) =>
+                        setPaymentCollect(e.target.value as PaymentCollect)
+                      }
+                    >
+                      {PAYMENT_COLLECT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-theme-xs text-gray-500 dark:text-gray-400">
+                      {
+                        PAYMENT_COLLECT_OPTIONS.find(
+                          (o) => o.value === paymentCollect,
+                        )?.hint
+                      }
+                    </p>
+                    {paymentCollect !== (reservation.payment_collect ?? "property") && (
+                      <Button
+                        size="sm"
+                        className="mt-3"
+                        disabled={savingPayment}
+                        onClick={() => void savePaymentCollect()}
+                      >
+                        {savingPayment ? "Saving…" : "Save payment setting"}
+                      </Button>
+                    )}
+                  </section>
                 )}
               </>
             )}
@@ -253,6 +322,16 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
             <h5 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
               Booking summary
             </h5>
+
+            <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900/40">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                Payment status
+              </p>
+              <div className="mt-2">
+                <PaymentStatusBadge status={paymentStatus} />
+              </div>
+            </div>
+
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between gap-3">
                 <dt className="text-gray-500">Room total</dt>

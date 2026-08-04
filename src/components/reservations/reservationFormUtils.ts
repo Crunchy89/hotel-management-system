@@ -2,9 +2,13 @@ import { addDays, dayDiff, formatCurrency, todayISO } from "@/lib/metrics";
 import type {
   CreateReservationInput,
   Guest,
+  PaymentCollect,
   Reservation,
   Room,
 } from "@/lib/types";
+import { PAYMENT_COLLECT_OPTIONS } from "@/lib/paymentStatus";
+
+export { PAYMENT_COLLECT_OPTIONS };
 
 export type ReservationTab = "details" | "guest" | "folio" | "notes";
 
@@ -36,6 +40,7 @@ export type ReservationFormValues = {
   discount: number;
   amount_paid: number;
   booking_source: string;
+  payment_collect: PaymentCollect;
   arrival_time: string;
   reference: string;
   notes: string;
@@ -105,6 +110,7 @@ export function defaultReservationForm(
     discount: 0,
     amount_paid: 0,
     booking_source: "Direct",
+    payment_collect: "property",
     arrival_time: "",
     reference: "",
     notes: "",
@@ -152,6 +158,7 @@ export function reservationToForm(
     discount: reservation.discount ?? 0,
     amount_paid: reservation.amount_paid ?? 0,
     booking_source: reservation.booking_source ?? "Direct",
+    payment_collect: reservation.payment_collect ?? "property",
     arrival_time: reservation.arrival_time ?? "",
     reference: reservation.reference ?? "",
     notes: reservation.notes,
@@ -215,6 +222,7 @@ export function formToCreateInput(
     amount_paid: form.amount_paid,
     hold_rate: form.hold_rate,
     booking_source: form.booking_source,
+    payment_collect: form.payment_collect,
     arrival_time: form.arrival_time,
     reference: form.reference,
   };

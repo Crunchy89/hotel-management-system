@@ -13,6 +13,8 @@ import {
   BOOKING_SOURCES,
   formToCreateInput,
 } from "@/components/reservations/reservationFormUtils";
+import { PaymentStatusBadge } from "@/components/reservations/PaymentStatusBadge";
+import { resolvePaymentStatus } from "@/lib/paymentStatus";
 import {
   defaultFilters,
   exportReservationsCsv,
@@ -79,7 +81,7 @@ function Occupants({
 }
 
 export default function ReservationsPage() {
-  const { reservations, guests, rooms, room_types, loading, error, mutate } =
+  const { reservations, guests, rooms, room_types, folio_lines, loading, error, mutate } =
     useHotelData();
 
   const today = todayISO();
@@ -101,8 +103,14 @@ export default function ReservationsPage() {
 
   const filteredRows = useMemo(
     () =>
-      filterReservations(reservations, guests, rooms, appliedFilters),
-    [reservations, guests, rooms, appliedFilters],
+      filterReservations(
+        reservations,
+        guests,
+        rooms,
+        appliedFilters,
+        folio_lines,
+      ),
+    [reservations, guests, rooms, appliedFilters, folio_lines],
   );
 
   const grouped = useMemo(
@@ -358,7 +366,7 @@ export default function ReservationsPage() {
                       Amount due
                     </TableCell>
                     <TableCell isHeader className={tableHeaderCell}>
-                      Invoice
+                      Payment status
                     </TableCell>
                   </TableRow>
                 </TableHeader>
@@ -463,13 +471,13 @@ export default function ReservationsPage() {
                               {formatCurrency(amountDue)}
                             </TableCell>
                             <TableCell className={tableBodyCell}>
-                              {r.amount_paid && r.amount_paid > 0 ? (
-                                <span className="text-brand-600 dark:text-brand-400">
-                                  Paid
-                                </span>
-                              ) : (
-                                "—"
-                              )}
+                              <PaymentStatusBadge
+                                status={resolvePaymentStatus(
+                                  r,
+                                  rooms.find((room) => room.id === r.room_id),
+                                  folio_lines,
+                                )}
+                              />
                             </TableCell>
                           </TableRow>
                         ),

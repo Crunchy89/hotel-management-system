@@ -13,26 +13,21 @@ export const TOP_NAV_ITEMS: NavItem[] = [
   { name: "Dashboard", path: "/" },
   { name: "Insights", path: "/insights" },
   { name: "Reservations", path: "/reservations" },
+  { name: "Manage Room", path: "/rooms" },
+  { name: "Rooms & Prices", path: "/rates" },
+  { name: "Calendar", path: "/calendar" },
+  { name: "Guests", path: "/guests" },
+  { name: "Guest messages", path: "/messages" },
+  { name: "Housekeeping", path: "/housekeeping" },
 ];
 
 export const NAV_SECTIONS: NavSection[] = [
-  {
-    id: "operational",
-    title: "Operational",
-    items: [
-      { name: "Calendar", path: "/calendar" },
-      { name: "Housekeeping", path: "/housekeeping" },
-      { name: "Guests", path: "/guests" },
-      { name: "Manage Room", path: "/rooms" },
-      { name: "Rooms & Prices", path: "/rates" },
-      { name: "Guest messages", path: "/messages" },
-    ],
-  },
   {
     id: "report",
     title: "Report",
     items: [
       { name: "Check-In", path: "/check-in" },
+      { name: "Booking activity", path: "/booking-activity" },
       { name: "Chat", path: "/chat" },
     ],
   },
@@ -62,6 +57,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   "/insights": "Insights",
   "/messages": "Guest messages",
   "/chat": "Chat",
+  "/booking-activity": "Booking activity",
 };
 
 export function isActivePath(pathname: string, path: string): boolean {
@@ -74,7 +70,7 @@ export function sectionForPath(pathname: string): string {
       return section.id;
     }
   }
-  return "operational";
+  return "report";
 }
 
 export function sectionItemsForPath(pathname: string): NavItem[] | null {
@@ -95,6 +91,12 @@ export function routeSection(pathname: string): string {
   if (pathname === "/") return "Dashboard";
   if (pathname.startsWith("/insights")) return "Insights";
   if (pathname.startsWith("/reservations")) return "Reservations";
+  if (pathname.startsWith("/rooms")) return "Manage Room";
+  if (pathname.startsWith("/rates")) return "Rooms & Prices";
+  if (pathname.startsWith("/calendar")) return "Calendar";
+  if (pathname.startsWith("/guests")) return "Guests";
+  if (pathname.startsWith("/messages")) return "Guest messages";
+  if (pathname.startsWith("/housekeeping")) return "Housekeeping";
   if (pathname.startsWith("/check-in")) return "Report";
 
   for (const section of NAV_SECTIONS) {
@@ -103,5 +105,5 @@ export function routeSection(pathname: string): string {
     }
   }
 
-  return "Operational";
+  return "Report";
 }

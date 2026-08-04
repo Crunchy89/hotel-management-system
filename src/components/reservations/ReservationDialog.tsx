@@ -10,6 +10,7 @@ import {
   ARRIVAL_TIMES,
   BOOKING_SOURCES,
   ID_DOCUMENT_TYPES,
+  PAYMENT_COLLECT_OPTIONS,
   type ReservationFormValues,
   type ReservationTab,
   bookingTotals,
@@ -533,6 +534,35 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                         ))}
                       </select>
                     </Field>
+                    <Field label="Payment collection">
+                      <select
+                        className={selectClass}
+                        value={form.payment_collect}
+                        onChange={(e) =>
+                          patch({
+                            payment_collect: e.target.value as
+                              | "property"
+                              | "channel",
+                          })
+                        }
+                      >
+                        {PAYMENT_COLLECT_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
+                        {
+                          PAYMENT_COLLECT_OPTIONS.find(
+                            (o) => o.value === form.payment_collect,
+                          )?.hint
+                        }
+                      </p>
+                    </Field>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Field label="Arrival time">
                       <select
                         className={selectClass}

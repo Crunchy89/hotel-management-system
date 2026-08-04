@@ -89,7 +89,6 @@ const AppSidebar: React.FC = () => {
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
   >({
-    operational: true,
     report: false,
     "channel-manager": false,
   });

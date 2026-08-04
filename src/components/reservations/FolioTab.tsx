@@ -18,6 +18,7 @@ const METHOD_OPTIONS: FolioPaymentMethod[] = [
   "card",
   "cash",
   "transfer",
+  "channel",
   "other",
 ];
 

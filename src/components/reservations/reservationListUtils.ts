@@ -1,5 +1,6 @@
 import { dayDiff, formatDate } from "@/lib/metrics";
-import type { Guest, Reservation, Room } from "@/lib/types";
+import { folioBalance } from "@/lib/folio";
+import type { FolioLine, Guest, Reservation, Room } from "@/lib/types";
 import { bookingTotals } from "./reservationFormUtils";
 
 export type DateType = "check_in" | "check_out" | "booked";
@@ -77,8 +78,20 @@ function guestLastName(reservation: Reservation, guest?: Guest): string {
 export function reservationTotals(
   reservation: Reservation,
   room: Room | undefined,
+  folioLines: FolioLine[] = [],
 ) {
   const nights = Math.max(0, dayDiff(reservation.check_in, reservation.check_out));
+  const lines = folioLines.filter((l) => l.reservation_id === reservation.id);
+
+  if (lines.length > 0) {
+    const balance = folioBalance(reservation, room, lines);
+    return {
+      nights,
+      total: balance.total,
+      amountDue: balance.due,
+    };
+  }
+
   const formLike = {
     guest_id: reservation.guest_id,
     guest_mode: "existing" as const,
@@ -107,6 +120,7 @@ export function reservationTotals(
     discount: reservation.discount ?? 0,
     amount_paid: reservation.amount_paid ?? 0,
     booking_source: reservation.booking_source ?? "",
+    payment_collect: reservation.payment_collect ?? "property",
     arrival_time: reservation.arrival_time ?? "",
     reference: reservation.reference ?? "",
     notes: reservation.notes,
@@ -126,6 +140,7 @@ export function filterReservations(
   guests: Guest[],
   rooms: Room[],
   filters: ReservationFilters,
+  folioLines: FolioLine[] = [],
 ): ReservationRow[] {
   const guestById = new Map(guests.map((g) => [g.id, g]));
   const roomById = new Map(rooms.map((r) => [r.id, r]));
@@ -165,7 +180,11 @@ export function filterReservations(
     if (filters.dateFrom && groupDate < filters.dateFrom) continue;
     if (filters.dateTo && groupDate > filters.dateTo) continue;
 
-    const { nights, total, amountDue } = reservationTotals(reservation, room);
+    const { nights, total, amountDue } = reservationTotals(
+      reservation,
+      room,
+      folioLines,
+    );
 
     rows.push({
       reservation,
@@ -235,6 +254,7 @@ export function exportReservationsCsv(rows: ReservationRow[]): void {
     "Room",
     "Total",
     "Amount due",
+    "Payment status",
   ];
 
   const lines = rows.map(({ reservation, displayName, displayReference, total, amountDue }) => {

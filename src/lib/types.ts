@@ -123,6 +123,7 @@ export interface Reservation {
   amount_paid?: number;
   hold_rate?: boolean;
   booking_source?: string;
+  payment_collect?: PaymentCollect;
   arrival_time?: string;
   reference?: string;
   created_at: string;
@@ -180,8 +181,14 @@ export interface CreateReservationInput {
   amount_paid?: number;
   hold_rate?: boolean;
   booking_source?: string;
+  payment_collect?: PaymentCollect;
   arrival_time?: string;
   reference?: string;
+}
+
+export interface UpdateReservationPaymentInput {
+  id: string;
+  payment_collect: PaymentCollect;
 }
 
 export interface DashboardStats {
@@ -290,7 +297,15 @@ export interface UpdateYieldRuleInput extends CreateYieldRuleInput {
 
 /** Folio line on a reservation (Little Hotelier / Cloudbeds-style payments). */
 export type FolioLineType = "charge" | "payment" | "refund";
-export type FolioPaymentMethod = "cash" | "card" | "transfer" | "other";
+export type FolioPaymentMethod =
+  | "cash"
+  | "card"
+  | "transfer"
+  | "channel"
+  | "other";
+
+/** Who collects guest payment — at the property or prepaid through an OTA/channel. */
+export type PaymentCollect = "property" | "channel";
 
 export interface FolioLine {
   id: string;
@@ -338,4 +353,23 @@ export interface SendGuestMessageInput {
   channel?: MessageChannel;
   subject?: string;
   body?: string;
+}
+
+export type BookingActivityKind =
+  | "booking_created"
+  | "payment_received"
+  | "booking_cancelled"
+  | "check_in"
+  | "check_out";
+
+export interface BookingActivity {
+  id: string;
+  kind: BookingActivityKind;
+  reservation_id: string;
+  reference?: string;
+  guest_name?: string;
+  booking_source?: string;
+  amount?: number;
+  description: string;
+  created_at: string;
 }

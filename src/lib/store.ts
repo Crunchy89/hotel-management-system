@@ -29,8 +29,13 @@ import type {
   CreateYieldRuleInput,
   UpdateYieldRuleInput,
   YieldRule,
+  BookingActivity,
+  BookingActivityKind,
+  PaymentCollect,
+  UpdateReservationPaymentInput,
 } from "@/lib/types";
-import { folioBalance, folioPaymentsNet } from "@/lib/folio";
+import { folioBalance, folioPaymentsNet, stayTotal } from "@/lib/folio";
+import { dayDiff } from "@/lib/metrics";
 import { renderMessageTemplate } from "@/lib/messaging";
 
 const STORAGE_KEY = "hms-hotel-data-v3";
@@ -48,6 +53,7 @@ type StoreData = {
   yield_rules: YieldRule[];
   folio_lines: FolioLine[];
   guest_messages: GuestMessage[];
+  booking_activities: BookingActivity[];
 };
 
 const PACKAGE_TEMPLATES: Array<{
@@ -128,6 +134,7 @@ function normalizeData(raw: Partial<StoreData>): StoreData {
     yield_rules: raw.yield_rules ?? [],
     folio_lines: raw.folio_lines ?? [],
     guest_messages: raw.guest_messages ?? [],
+    booking_activities: raw.booking_activities ?? [],
   };
 }
 
@@ -316,6 +323,217 @@ function ensureAll(data: StoreData): void {
   ensureChannels(data);
   ensureYieldRules(data);
   ensureChannelRateEntries(data);
+  ensureReservationPayments(data);
+  ensureBookingActivities(data);
+}
+
+const OTA_SOURCES = new Set(["Booking.com", "Expedia", "Agoda"]);
+
+function reservationStayAmount(data: StoreData, reservation: Reservation): number {
+  const room = data.rooms.find((r) => r.id === reservation.room_id);
+  return stayTotal(reservation, room);
+}
+
+function ensureReservationPayments(data: StoreData): void {
+  if (data.reservations.every((r) => r.payment_collect)) return;
+
+  let seq = 0;
+  for (const reservation of data.reservations) {
+    if (reservation.status === "cancelled") {
+      reservation.payment_collect ??= "property";
+      seq += 1;
+      continue;
+    }
+
+    if (!reservation.booking_source) {
+      reservation.booking_source =
+        BOOKING_SOURCE_ROTATION[seq % BOOKING_SOURCE_ROTATION.length];
+    }
+
+    const hasPayment = data.folio_lines.some(
+      (l) => l.reservation_id === reservation.id && l.type === "payment",
+    );
+    const pattern = seq % 6;
+    const source = reservation.booking_source ?? "Direct";
+
+    if (!reservation.payment_collect) {
+      if ((pattern === 0 || pattern === 2) && OTA_SOURCES.has(source)) {
+        reservation.payment_collect = "channel";
+      } else {
+        reservation.payment_collect = "property";
+      }
+    }
+
+    if (!hasPayment) {
+      const amount = reservationStayAmount(data, reservation);
+      if (amount <= 0) {
+        seq += 1;
+        continue;
+      }
+
+      if (reservation.payment_collect === "channel") {
+        data.folio_lines.push({
+          id: uid(),
+          reservation_id: reservation.id,
+          type: "payment",
+          description: `Prepaid via ${source}`,
+          amount: Math.round(amount * 100) / 100,
+          method: "channel",
+          created_at: reservation.created_at,
+        });
+      } else if (pattern === 3) {
+        data.folio_lines.push({
+          id: uid(),
+          reservation_id: reservation.id,
+          type: "payment",
+          description: "Deposit",
+          amount: Math.round(amount * 0.35 * 100) / 100,
+          method: "card",
+          created_at: reservation.created_at,
+        });
+      } else if (pattern === 4) {
+        data.folio_lines.push({
+          id: uid(),
+          reservation_id: reservation.id,
+          type: "payment",
+          description: "Bank transfer received",
+          amount: Math.round(amount * 100) / 100,
+          method: "transfer",
+          created_at: reservation.created_at,
+        });
+      }
+      syncAmountPaid(data, reservation.id);
+    }
+
+    seq += 1;
+  }
+}
+
+const BOOKING_SOURCE_ROTATION = [
+  "Direct",
+  "Booking.com",
+  "Expedia",
+  "Agoda",
+  "Walk-in",
+  "Phone",
+];
+
+function activityGuestName(data: StoreData, reservation: Reservation): string {
+  const guest = data.guests.find((g) => g.id === reservation.guest_id);
+  if (guest) return `${guest.last_name}, ${guest.first_name}`;
+  return reservation.guest_name ?? "Guest";
+}
+
+function logBookingActivity(
+  data: StoreData,
+  kind: BookingActivityKind,
+  reservation: Reservation,
+  opts?: {
+    amount?: number;
+    description?: string;
+    created_at?: string;
+  },
+): void {
+  const defaults: Record<BookingActivityKind, string> = {
+    booking_created: "New room booking",
+    payment_received: "Payment received",
+    booking_cancelled: "Booking cancelled",
+    check_in: "Guest checked in",
+    check_out: "Guest checked out",
+  };
+
+  data.booking_activities.push({
+    id: uid(),
+    kind,
+    reservation_id: reservation.id,
+    reference: reservation.reference,
+    guest_name: activityGuestName(data, reservation),
+    booking_source: reservation.booking_source ?? "Direct",
+    amount: opts?.amount,
+    description: opts?.description ?? defaults[kind],
+    created_at: opts?.created_at ?? new Date().toISOString(),
+  });
+}
+
+function rebuildBookingActivities(data: StoreData): void {
+  const activities: BookingActivity[] = [];
+  let seq = 0;
+
+  const push = (
+    kind: BookingActivityKind,
+    reservation: Reservation,
+    created_at: string,
+    opts?: { amount?: number; description?: string },
+  ) => {
+    activities.push({
+      id: uid(),
+      kind,
+      reservation_id: reservation.id,
+      reference: reservation.reference,
+      guest_name: activityGuestName(data, reservation),
+      booking_source:
+        reservation.booking_source ??
+        BOOKING_SOURCE_ROTATION[seq % BOOKING_SOURCE_ROTATION.length],
+      amount: opts?.amount,
+      description: opts?.description ?? kind.replace(/_/g, " "),
+      created_at,
+    });
+  };
+
+  for (const reservation of data.reservations) {
+    const enriched = enrichReservation(data, reservation);
+    const source =
+      enriched.booking_source ??
+      BOOKING_SOURCE_ROTATION[seq % BOOKING_SOURCE_ROTATION.length];
+    reservation.booking_source = source;
+
+    const createdAt = new Date(enriched.created_at);
+    createdAt.setUTCMinutes(createdAt.getUTCMinutes() - seq * 17);
+    const bookedAt = createdAt.toISOString();
+
+    push("booking_created", enriched, bookedAt, {
+      description: `New booking · ${enriched.reference ?? enriched.id.slice(0, 8)}`,
+    });
+
+    if (enriched.status === "cancelled") {
+      const cancelledAt = new Date(bookedAt);
+      cancelledAt.setUTCHours(cancelledAt.getUTCHours() + 4 + (seq % 5));
+      push("booking_cancelled", enriched, cancelledAt.toISOString(), {
+        description: "Booking cancelled by staff",
+      });
+    }
+
+    if (enriched.status === "checked_in" || enriched.status === "checked_out") {
+      const checkInAt = new Date(`${enriched.check_in}T14:00:00.000Z`);
+      push("check_in", enriched, checkInAt.toISOString());
+    }
+
+    if (enriched.status === "checked_out") {
+      const checkOutAt = new Date(`${enriched.check_out}T10:30:00.000Z`);
+      push("check_out", enriched, checkOutAt.toISOString());
+    }
+
+    seq += 1;
+  }
+
+  for (const line of data.folio_lines) {
+    if (line.type !== "payment") continue;
+    const reservation = data.reservations.find((r) => r.id === line.reservation_id);
+    if (!reservation) continue;
+    const enriched = enrichReservation(data, reservation);
+    push("payment_received", enriched, line.created_at, {
+      amount: line.amount,
+      description: line.description || "Payment received",
+    });
+  }
+
+  activities.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  data.booking_activities = activities;
+}
+
+function ensureBookingActivities(data: StoreData): void {
+  if (data.booking_activities.length > 0) return;
+  rebuildBookingActivities(data);
 }
 
 function seedYieldRules(): YieldRule[] {
@@ -569,6 +787,7 @@ function seedData(): StoreData {
     yield_rules: [],
     folio_lines: [],
     guest_messages: [],
+    booking_activities: [],
   };
   ensureAll(data);
   return data;
@@ -587,6 +806,7 @@ const EMPTY_DATA: StoreData = {
   yield_rules: [],
   folio_lines: [],
   guest_messages: [],
+  booking_activities: [],
 };
 
 /**
@@ -965,6 +1185,11 @@ export function createReservation(input: CreateReservationInput): Reservation {
 
     const now = new Date().toISOString();
     const deposit = input.amount_paid ?? 0;
+    const payment_collect: PaymentCollect = input.payment_collect ?? "property";
+    const assignedRoom = allocated
+      ? data.rooms.find((r) => r.id === input.room_id)
+      : undefined;
+
     const reservation: Reservation = {
       id: uid(),
       guest_id,
@@ -984,6 +1209,7 @@ export function createReservation(input: CreateReservationInput): Reservation {
       amount_paid: 0,
       hold_rate: input.hold_rate ?? true,
       booking_source: input.booking_source,
+      payment_collect,
       arrival_time: input.arrival_time,
       reference:
         input.reference?.trim() ||
@@ -993,17 +1219,50 @@ export function createReservation(input: CreateReservationInput): Reservation {
     };
     data.reservations.push(reservation);
 
+    logBookingActivity(data, "booking_created", reservation, {
+      description: `New booking · ${reservation.reference ?? reservation.id.slice(0, 8)}`,
+      created_at: now,
+    });
+
+    const stayAmount = stayTotal(reservation, assignedRoom);
+    const paymentMethod =
+      payment_collect === "channel" ? ("channel" as const) : ("card" as const);
+
     if (deposit > 0) {
       data.folio_lines.push({
         id: uid(),
         reservation_id: reservation.id,
         type: "payment",
-        description: "Deposit / prepayment",
+        description:
+          payment_collect === "channel"
+            ? `Prepaid via ${input.booking_source ?? "channel"}`
+            : "Deposit / prepayment",
         amount: Math.round(deposit * 100) / 100,
-        method: "card",
+        method: paymentMethod,
         created_at: now,
       });
       syncAmountPaid(data, reservation.id);
+      logBookingActivity(data, "payment_received", reservation, {
+        amount: Math.round(deposit * 100) / 100,
+        description: "Deposit / prepayment",
+        created_at: now,
+      });
+    } else if (payment_collect === "channel" && stayAmount > 0) {
+      data.folio_lines.push({
+        id: uid(),
+        reservation_id: reservation.id,
+        type: "payment",
+        description: `Prepaid via ${input.booking_source ?? "channel"}`,
+        amount: Math.round(stayAmount * 100) / 100,
+        method: "channel",
+        created_at: now,
+      });
+      syncAmountPaid(data, reservation.id);
+      logBookingActivity(data, "payment_received", reservation, {
+        amount: Math.round(stayAmount * 100) / 100,
+        description: `Prepaid via ${input.booking_source ?? "channel"}`,
+        created_at: now,
+      });
     }
 
     const enriched = enrichReservation(data, reservation);
@@ -1037,6 +1296,22 @@ export function cancelReservation(id: string): Reservation {
     }
     reservation.status = "cancelled";
     reservation.updated_at = new Date().toISOString();
+    logBookingActivity(data, "booking_cancelled", reservation, {
+      description: "Booking cancelled by staff",
+      created_at: reservation.updated_at,
+    });
+    return enrichReservation(data, reservation);
+  });
+}
+
+export function updateReservationPayment(
+  input: UpdateReservationPaymentInput,
+): Reservation {
+  return withData((data) => {
+    const reservation = data.reservations.find((r) => r.id === input.id);
+    if (!reservation) throw new Error("reservation not found");
+    reservation.payment_collect = input.payment_collect;
+    reservation.updated_at = new Date().toISOString();
     return enrichReservation(data, reservation);
   });
 }
@@ -1055,6 +1330,9 @@ export function checkIn(id: string): Reservation {
     reservation.status = "checked_in";
     reservation.updated_at = new Date().toISOString();
     room.status = "occupied";
+    logBookingActivity(data, "check_in", reservation, {
+      created_at: reservation.updated_at,
+    });
     return enrichReservation(data, reservation);
   });
 }
@@ -1080,6 +1358,9 @@ export function checkOut(id: string): Reservation {
     reservation.status = "checked_out";
     reservation.updated_at = new Date().toISOString();
     room.status = "cleaning";
+    logBookingActivity(data, "check_out", reservation, {
+      created_at: reservation.updated_at,
+    });
     return enrichReservation(data, reservation);
   });
 }
@@ -1128,6 +1409,13 @@ export function createFolioLine(input: CreateFolioLineInput): FolioLine {
     };
     data.folio_lines.push(line);
     syncAmountPaid(data, input.reservation_id);
+    if (input.type === "payment") {
+      logBookingActivity(data, "payment_received", reservation, {
+        amount: line.amount,
+        description: line.description,
+        created_at: line.created_at,
+      });
+    }
     return line;
   });
 }
@@ -1140,6 +1428,13 @@ export function deleteFolioLine(id: string): void {
     data.folio_lines.splice(idx, 1);
     syncAmountPaid(data, reservationId);
   });
+}
+
+export function listBookingActivities(): BookingActivity[] {
+  const data = read();
+  return [...data.booking_activities].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  );
 }
 
 export function listGuestMessages(reservationId?: string): GuestMessage[] {
@@ -1705,6 +2000,7 @@ type Snapshot = {
   yield_rules: YieldRule[];
   folio_lines: FolioLine[];
   guest_messages: GuestMessage[];
+  booking_activities: BookingActivity[];
   stats: DashboardStats;
 };
 
@@ -1721,6 +2017,7 @@ const EMPTY_SNAPSHOT: Snapshot = {
   yield_rules: [],
   folio_lines: [],
   guest_messages: [],
+  booking_activities: [],
   stats: {
     available_rooms: 0,
     occupied_rooms: 0,
@@ -1751,6 +2048,7 @@ export function getSnapshot(): Snapshot {
       yield_rules: listYieldRules(),
       folio_lines: listFolioLines(),
       guest_messages: listGuestMessages(),
+      booking_activities: listBookingActivities(),
       stats: getDashboardStats(),
     };
     snapshotVersion = version;

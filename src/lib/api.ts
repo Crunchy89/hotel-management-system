@@ -29,7 +29,9 @@ import type {
   UpdateRoomInput,
   UpdateRoomTypeInput,
   UpdateYieldRuleInput,
+  UpdateReservationPaymentInput,
   YieldRule,
+  BookingActivity,
 } from "@/lib/types";
 
 function asPromise<T>(fn: () => T): Promise<T> {
@@ -68,6 +70,10 @@ export const api = {
     asPromise(() => store.createReservation(input)),
   cancelReservation: (id: string): Promise<Reservation> =>
     asPromise(() => store.cancelReservation(id)),
+  updateReservationPayment: (
+    input: UpdateReservationPaymentInput,
+  ): Promise<Reservation> =>
+    asPromise(() => store.updateReservationPayment(input)),
   checkIn: (id: string): Promise<Reservation> => asPromise(() => store.checkIn(id)),
   checkOut: (id: string): Promise<Reservation> => asPromise(() => store.checkOut(id)),
   listFolioLines: (reservationId?: string): Promise<FolioLine[]> =>
@@ -123,6 +129,8 @@ export const api = {
     asPromise(() => store.toggleYieldRule(id)),
   getDashboardStats: (): Promise<DashboardStats> =>
     asPromise(() => store.getDashboardStats()),
+  listBookingActivities: (): Promise<BookingActivity[]> =>
+    asPromise(() => store.listBookingActivities()),
 };
 
 export function formatError(err: unknown): string {
