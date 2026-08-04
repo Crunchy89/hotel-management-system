@@ -206,6 +206,7 @@ export interface Channel {
   is_connected: boolean;
   sort_order: number;
   has_warning?: boolean;
+  last_synced_at?: string;
 }
 
 export interface UpdateChannelInput {
@@ -213,6 +214,39 @@ export interface UpdateChannelInput {
   status?: ChannelStatus;
   mapped_count?: number;
   is_connected?: boolean;
+  last_synced_at?: string;
+}
+
+export type ChannelSyncStatus = "pending" | "synced" | "error";
+
+export interface ChannelRateEntry {
+  channel_id: string;
+  rate_plan_id: string;
+  date: string;
+  rate: number;
+  availability: number;
+  sync_status: ChannelSyncStatus;
+  updated_at: string;
+  last_synced_at?: string;
+}
+
+export interface UpsertChannelRateEntryInput {
+  channel_id: string;
+  rate_plan_id: string;
+  date: string;
+  rate?: number;
+  availability?: number;
+}
+
+export interface BulkChannelRateUpdateInput {
+  channel_id: string;
+  rate_plan_ids: string[];
+  field: "rate" | "availability";
+  value: number;
+  date_from: string;
+  date_to: string;
+  /** 0=Sun … 6=Sat */
+  weekdays: number[];
 }
 
 export type YieldRuleType =

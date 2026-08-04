@@ -2,6 +2,7 @@
 
 import React from "react";
 import { usePathname } from "next/navigation";
+import AccountMenu from "@/components/layout/AccountMenu";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
 import { routeLabel, routeSection } from "@/lib/navigation";
 import { useSidebar } from "@/context/SidebarContext";
@@ -80,14 +81,7 @@ const AppHeader: React.FC = () => {
         <div className="flex items-center gap-2 sm:gap-3">
           <ThemeToggleButton />
           <div className="hidden h-6 w-px bg-gray-200 dark:bg-gray-800 sm:block" />
-          <div className="flex items-center gap-2.5">
-            <span className="hidden text-theme-sm font-medium text-gray-600 dark:text-gray-300 md:block">
-              Reception
-            </span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-theme-xs font-semibold text-brand-600 ring-2 ring-white dark:bg-brand-500/15 dark:text-brand-400 dark:ring-gray-900">
-              RC
-            </span>
-          </div>
+          <AccountMenu />
         </div>
       </div>
     </header>

@@ -4,67 +4,13 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "@/context/SidebarContext";
-
-type NavItem = {
-  name: string;
-  path: string;
-};
-
-type NavSection = {
-  id: string;
-  title: string;
-  items: NavItem[];
-};
-
-const topNavItems: NavItem[] = [
-  { name: "Dashboard", path: "/" },
-  { name: "Insights", path: "/insights" },
-];
-
-const navSections: NavSection[] = [
-  {
-    id: "operational",
-    title: "Operational",
-    items: [
-      { name: "Calendar", path: "/calendar" },
-      { name: "Reservations", path: "/reservations" },
-      { name: "Housekeeping", path: "/housekeeping" },
-      { name: "Guests", path: "/guests" },
-      { name: "Manage Room", path: "/rooms" },
-      { name: "Rooms & Prices", path: "/rates" },
-      { name: "Guest messages", path: "/messages" },
-    ],
-  },
-  {
-    id: "report",
-    title: "Report",
-    items: [{ name: "Check-In", path: "/check-in" }],
-  },
-  {
-    id: "strategic",
-    title: "Strategic",
-    items: [
-      { name: "Channels", path: "/channels" },
-      { name: "Yield Rules", path: "/yield-rules" },
-      { name: "Direct booking", path: "/book" },
-    ],
-  },
-];
-
-function sectionForPath(pathname: string): string {
-  for (const section of navSections) {
-    if (
-      section.items.some((item) =>
-        item.path === "/"
-          ? pathname === "/"
-          : pathname.startsWith(item.path),
-      )
-    ) {
-      return section.id;
-    }
-  }
-  return "operational";
-}
+import {
+  isActivePath,
+  NAV_SECTIONS,
+  sectionForPath,
+  TOP_NAV_ITEMS,
+  type NavItem,
+} from "@/lib/navigation";
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
@@ -134,8 +80,7 @@ const AppSidebar: React.FC = () => {
   const pathname = usePathname();
 
   const isActive = useCallback(
-    (path: string) =>
-      path === "/" ? pathname === "/" : pathname.startsWith(path),
+    (path: string) => isActivePath(pathname, path),
     [pathname],
   );
 
@@ -146,7 +91,7 @@ const AppSidebar: React.FC = () => {
   >({
     operational: true,
     report: false,
-    strategic: false,
+    "channel-manager": false,
   });
 
   useEffect(() => {
@@ -188,7 +133,7 @@ const AppSidebar: React.FC = () => {
         <nav className="flex flex-col gap-2">
           {showLabels && (
             <ul className="mb-2 flex flex-col gap-0.5 border-b border-gray-200 pb-3 dark:border-gray-800">
-              {topNavItems.map((item) => (
+              {TOP_NAV_ITEMS.map((item) => (
                 <li key={item.path}>
                   <NavLink item={item} active={isActive(item.path)} />
                 </li>
@@ -198,7 +143,7 @@ const AppSidebar: React.FC = () => {
 
           {!showLabels && (
             <ul className="mb-2 flex flex-col items-center gap-2 border-b border-gray-200 pb-3 dark:border-gray-800">
-              {topNavItems.map((item) => (
+              {TOP_NAV_ITEMS.map((item) => (
                 <li key={item.path}>
                   <Link
                     href={item.path}
@@ -216,7 +161,7 @@ const AppSidebar: React.FC = () => {
             </ul>
           )}
 
-          {navSections.map((section) => {
+          {NAV_SECTIONS.map((section) => {
             const isOpen = expandedSections[section.id] ?? false;
 
             return (

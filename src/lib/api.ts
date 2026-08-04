@@ -1,7 +1,9 @@
 import * as store from "@/lib/store";
 import type {
+  BulkChannelRateUpdateInput,
   BulkRateUpdateInput,
   Channel,
+  ChannelRateEntry,
   CreateFolioLineInput,
   CreateGuestInput,
   CreateReservationInput,
@@ -22,6 +24,7 @@ import type {
   UpdateChannelInput,
   UpdateGuestInput,
   UpdateHousekeepingInput,
+  UpsertChannelRateEntryInput,
   UpsertRateEntryInput,
   UpdateRoomInput,
   UpdateRoomTypeInput,
@@ -94,6 +97,20 @@ export const api = {
     asPromise(() => store.updateChannel(input)),
   reorderChannels: (orderedIds: string[]): Promise<Channel[]> =>
     asPromise(() => store.reorderChannels(orderedIds)),
+  listChannelRateEntries: (
+    channelId?: string,
+    from?: string,
+    to?: string,
+  ): Promise<ChannelRateEntry[]> =>
+    asPromise(() => store.listChannelRateEntries(channelId, from, to)),
+  upsertChannelRateEntry: (
+    input: UpsertChannelRateEntryInput,
+  ): Promise<ChannelRateEntry> =>
+    asPromise(() => store.upsertChannelRateEntry(input)),
+  bulkUpdateChannelRates: (input: BulkChannelRateUpdateInput): Promise<number> =>
+    asPromise(() => store.bulkUpdateChannelRates(input)),
+  syncChannelRates: (channelId: string): Promise<number> =>
+    asPromise(() => store.syncChannelRates(channelId)),
   listYieldRules: (): Promise<YieldRule[]> =>
     asPromise(() => store.listYieldRules()),
   createYieldRule: (input: CreateYieldRuleInput): Promise<YieldRule> =>

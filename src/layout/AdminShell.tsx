@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
-import { usePathname } from "next/navigation";
+import React, { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
+import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
 
 export default function AdminShell({
@@ -13,11 +14,28 @@ export default function AdminShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
-  // Public booking engine — no staff chrome
-  if (pathname.startsWith("/book")) {
+  const isLoginPage = pathname.startsWith("/login");
+
+  useEffect(() => {
+    if (!isAuthenticated && !isLoginPage) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, isLoginPage, router]);
+
+  if (isLoginPage) {
     return <>{children}</>;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 text-sm text-gray-500 dark:bg-gray-900">
+        Redirecting to sign in…
+      </div>
+    );
   }
 
   const mainContentMargin = isMobileOpen

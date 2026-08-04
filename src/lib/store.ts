@@ -10,7 +10,9 @@ import type {
   GuestMessage,
   HousekeepingRecord,
   BulkRateUpdateInput,
+  BulkChannelRateUpdateInput,
   Channel,
+  ChannelRateEntry,
   RateEntry,
   RatePlan,
   Reservation,
@@ -18,6 +20,7 @@ import type {
   RoomTypeRecord,
   SendGuestMessageInput,
   UpdateChannelInput,
+  UpsertChannelRateEntryInput,
   UpsertRateEntryInput,
   UpdateGuestInput,
   UpdateHousekeepingInput,
@@ -41,6 +44,7 @@ type StoreData = {
   rate_plans: RatePlan[];
   rate_entries: RateEntry[];
   channels: Channel[];
+  channel_rate_entries: ChannelRateEntry[];
   yield_rules: YieldRule[];
   folio_lines: FolioLine[];
   guest_messages: GuestMessage[];
@@ -57,6 +61,7 @@ const PACKAGE_TEMPLATES: Array<{
   { slug: "seasonal", label: "Seasonal promo", multiplier: 1.0, channels: [] },
   { slug: "with-breakfast", label: "Room rate with breakfast", multiplier: 1.25, channels: ["Booking.com", "Expedia"] },
   { slug: "room-only", label: "Room rate only", multiplier: 1.0, channels: ["Direct"] },
+  { slug: "agoda-mobile", label: "Agoda mobile rate", multiplier: 0.95, channels: ["Agoda"] },
 ];
 
 const DEFAULT_ROOM_TYPE_LABELS: Record<string, string> = {
@@ -119,6 +124,7 @@ function normalizeData(raw: Partial<StoreData>): StoreData {
     rate_plans: raw.rate_plans ?? [],
     rate_entries: raw.rate_entries ?? [],
     channels: raw.channels ?? [],
+    channel_rate_entries: raw.channel_rate_entries ?? [],
     yield_rules: raw.yield_rules ?? [],
     folio_lines: raw.folio_lines ?? [],
     guest_messages: raw.guest_messages ?? [],
@@ -234,9 +240,82 @@ function seedChannels(): Channel[] {
   return channels;
 }
 
+function ensureChannelRateEntries(data: StoreData): void {
+  if (data.channel_rate_entries.length > 0) return;
+
+  const otaNames = new Set(["Agoda", "Booking.com", "Expedia", "Hotelbeds"]);
+  const channels = data.channels.filter(
+    (c) => c.is_connected && otaNames.has(c.name),
+  );
+  if (channels.length === 0 || data.rate_plans.length === 0) return;
+
+  const modifiers: Record<string, number> = {
+    Agoda: 0.97,
+    "Booking.com": 1,
+    Expedia: 1.05,
+    Hotelbeds: 0.92,
+  };
+
+  const entries: ChannelRateEntry[] = [];
+  const now = new Date().toISOString();
+  const start = todayISO();
+
+  for (let i = 0; i < 14; i++) {
+    const date = addDays(start, i);
+    for (const channel of channels) {
+      const plans = data.rate_plans.filter((plan) =>
+        planMatchesChannel(plan, channel.name),
+      );
+      for (const plan of plans) {
+        const baseEntry = data.rate_entries.find(
+          (e) => e.rate_plan_id === plan.id && e.date === date,
+        );
+        const mod = modifiers[channel.name] ?? 1;
+        const rate = Math.round((baseEntry?.rate ?? plan.base_rate) * mod);
+        const availability =
+          baseEntry?.availability ?? defaultAvailability(data, plan, date);
+
+        entries.push({
+          channel_id: channel.id,
+          rate_plan_id: plan.id,
+          date,
+          rate,
+          availability,
+          sync_status: i % 3 === 0 ? "pending" : "synced",
+          updated_at: now,
+          last_synced_at: i % 3 === 0 ? undefined : now,
+        });
+      }
+    }
+  }
+
+  data.channel_rate_entries = entries;
+}
+
+function planMatchesChannel(plan: RatePlan, channelName: string): boolean {
+  if (channelName === "Direct Booking") {
+    return plan.channels.includes("Direct") || plan.channels.length === 0;
+  }
+  if (plan.channels.includes("Direct") && plan.channels.length === 1) {
+    return false;
+  }
+  return (
+    plan.channels.length === 0 ||
+    plan.channels.includes(channelName) ||
+    plan.channels.some((c) => c !== "Direct")
+  );
+}
+
 function ensureChannels(data: StoreData): void {
   if (data.channels.length > 0) return;
   data.channels = seedChannels();
+}
+
+function ensureAll(data: StoreData): void {
+  ensureRatePlans(data);
+  ensureChannels(data);
+  ensureYieldRules(data);
+  ensureChannelRateEntries(data);
 }
 
 function seedYieldRules(): YieldRule[] {
@@ -486,13 +565,12 @@ function seedData(): StoreData {
     rate_plans: [],
     rate_entries: [],
     channels: [],
+    channel_rate_entries: [],
     yield_rules: [],
     folio_lines: [],
     guest_messages: [],
   };
-  ensureRatePlans(data);
-  ensureChannels(data);
-  ensureYieldRules(data);
+  ensureAll(data);
   return data;
 }
 
@@ -505,6 +583,7 @@ const EMPTY_DATA: StoreData = {
   rate_plans: [],
   rate_entries: [],
   channels: [],
+  channel_rate_entries: [],
   yield_rules: [],
   folio_lines: [],
   guest_messages: [],
@@ -547,9 +626,7 @@ function read(): StoreData {
   if (raw) {
     try {
       cache = normalizeData(JSON.parse(raw) as Partial<StoreData>);
-      ensureRatePlans(cache);
-      ensureChannels(cache);
-      ensureYieldRules(cache);
+      ensureAll(cache);
       persist(cache);
       return cache;
     } catch {
@@ -1331,6 +1408,166 @@ export function reorderChannels(orderedIds: string[]): Channel[] {
   });
 }
 
+export function listChannelRateEntries(
+  channelId?: string,
+  from?: string,
+  to?: string,
+): ChannelRateEntry[] {
+  let entries = read().channel_rate_entries;
+  if (channelId) entries = entries.filter((e) => e.channel_id === channelId);
+  if (from || to) {
+    entries = entries.filter((e) => {
+      if (from && e.date < from) return false;
+      if (to && e.date > to) return false;
+      return true;
+    });
+  }
+  return [...entries];
+}
+
+export function upsertChannelRateEntry(
+  input: UpsertChannelRateEntryInput,
+): ChannelRateEntry {
+  if (!input.channel_id) throw new Error("channel id is required");
+  if (!input.rate_plan_id) throw new Error("rate plan id is required");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new Error("invalid date");
+
+  return withData((data) => {
+    const channel = data.channels.find((c) => c.id === input.channel_id);
+    if (!channel) throw new Error("channel not found");
+
+    const plan = data.rate_plans.find((p) => p.id === input.rate_plan_id);
+    if (!plan) throw new Error("rate plan not found");
+
+    const idx = data.channel_rate_entries.findIndex(
+      (e) =>
+        e.channel_id === input.channel_id &&
+        e.rate_plan_id === input.rate_plan_id &&
+        e.date === input.date,
+    );
+
+    const baseEntry = data.rate_entries.find(
+      (e) => e.rate_plan_id === input.rate_plan_id && e.date === input.date,
+    );
+    const now = new Date().toISOString();
+    const current = idx >= 0 ? data.channel_rate_entries[idx]! : null;
+
+    const record: ChannelRateEntry = {
+      channel_id: input.channel_id,
+      rate_plan_id: input.rate_plan_id,
+      date: input.date,
+      rate: input.rate ?? current?.rate ?? baseEntry?.rate ?? plan.base_rate,
+      availability:
+        input.availability ??
+        current?.availability ??
+        baseEntry?.availability ??
+        defaultAvailability(data, plan, input.date),
+      sync_status: "pending",
+      updated_at: now,
+      last_synced_at: current?.last_synced_at,
+    };
+
+    if (idx >= 0) data.channel_rate_entries[idx] = record;
+    else data.channel_rate_entries.push(record);
+
+    return record;
+  });
+}
+
+export function bulkUpdateChannelRates(input: BulkChannelRateUpdateInput): number {
+  if (!input.channel_id) throw new Error("channel id is required");
+  if (!input.rate_plan_ids.length) throw new Error("select at least one rate plan");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date_from)) throw new Error("invalid start date");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date_to)) throw new Error("invalid end date");
+  if (input.date_to < input.date_from) throw new Error("end date must be after start date");
+  if (input.value < 0) throw new Error("value cannot be negative");
+
+  return withData((data) => {
+    const channel = data.channels.find((c) => c.id === input.channel_id);
+    if (!channel) throw new Error("channel not found");
+
+    let updated = 0;
+    let cursor = input.date_from;
+
+    while (cursor <= input.date_to) {
+      const weekday = new Date(`${cursor}T00:00:00`).getUTCDay();
+      if (input.weekdays.includes(weekday)) {
+        for (const planId of input.rate_plan_ids) {
+          const plan = data.rate_plans.find((p) => p.id === planId);
+          if (!plan) continue;
+
+          const idx = data.channel_rate_entries.findIndex(
+            (e) =>
+              e.channel_id === input.channel_id &&
+              e.rate_plan_id === planId &&
+              e.date === cursor,
+          );
+          const now = new Date().toISOString();
+          const baseEntry = data.rate_entries.find(
+            (e) => e.rate_plan_id === planId && e.date === cursor,
+          );
+          const current = idx >= 0 ? data.channel_rate_entries[idx]! : null;
+
+          const record: ChannelRateEntry = {
+            channel_id: input.channel_id,
+            rate_plan_id: planId,
+            date: cursor,
+            rate:
+              input.field === "rate"
+                ? input.value
+                : (current?.rate ?? baseEntry?.rate ?? plan.base_rate),
+            availability:
+              input.field === "availability"
+                ? input.value
+                : (current?.availability ??
+                  baseEntry?.availability ??
+                  defaultAvailability(data, plan, cursor)),
+            sync_status: "pending",
+            updated_at: now,
+            last_synced_at: current?.last_synced_at,
+          };
+
+          if (idx >= 0) data.channel_rate_entries[idx] = record;
+          else data.channel_rate_entries.push(record);
+          updated += 1;
+        }
+      }
+      cursor = addDays(cursor, 1);
+    }
+
+    return updated;
+  });
+}
+
+export function syncChannelRates(channelId: string): number {
+  if (!channelId) throw new Error("channel id is required");
+
+  return withData((data) => {
+    const channelIdx = data.channels.findIndex((c) => c.id === channelId);
+    if (channelIdx < 0) throw new Error("channel not found");
+
+    const now = new Date().toISOString();
+    let synced = 0;
+
+    for (const entry of data.channel_rate_entries) {
+      if (entry.channel_id !== channelId) continue;
+      if (entry.sync_status === "pending") {
+        entry.sync_status = "synced";
+        entry.last_synced_at = now;
+        synced += 1;
+      }
+    }
+
+    data.channels[channelIdx] = {
+      ...data.channels[channelIdx]!,
+      last_synced_at: now,
+      has_warning: false,
+    };
+
+    return synced;
+  });
+}
+
 const YIELD_RULE_TYPES = new Set([
   "min_stay",
   "max_stay",
@@ -1464,6 +1701,7 @@ type Snapshot = {
   rate_plans: RatePlan[];
   rate_entries: RateEntry[];
   channels: Channel[];
+  channel_rate_entries: ChannelRateEntry[];
   yield_rules: YieldRule[];
   folio_lines: FolioLine[];
   guest_messages: GuestMessage[];
@@ -1479,6 +1717,7 @@ const EMPTY_SNAPSHOT: Snapshot = {
   rate_plans: [],
   rate_entries: [],
   channels: [],
+  channel_rate_entries: [],
   yield_rules: [],
   folio_lines: [],
   guest_messages: [],
@@ -1508,6 +1747,7 @@ export function getSnapshot(): Snapshot {
       rate_plans: listRatePlans(),
       rate_entries: listRateEntries(),
       channels: listChannels(),
+      channel_rate_entries: listChannelRateEntries(),
       yield_rules: listYieldRules(),
       folio_lines: listFolioLines(),
       guest_messages: listGuestMessages(),

@@ -39,13 +39,16 @@ export function SurfaceCard({
   children,
   className = "",
   padding = true,
+  id,
 }: {
   children: React.ReactNode;
   className?: string;
   padding?: boolean;
+  id?: string;
 }) {
   return (
     <div
+      id={id}
       className={`hms-surface overflow-hidden ${padding ? "" : ""} ${className}`}
     >
       {children}
@@ -380,6 +383,8 @@ export function EmptyState({
     </div>
   );
 }
+
+export { PageSectionNav } from "./PageSectionNav";
 
 export const tableHeaderCell =
   "whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400";

@@ -16,11 +16,17 @@ import {
 } from "@/components/check-in/checkInUtils";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
-import { PageShell, SurfaceCard } from "@/components/ui/layout";
+import { PageShell, SurfaceCard, TwoColumnLayout, PageSectionNav } from "@/components/ui/layout";
 import { useModal } from "@/hooks/useModal";
 
 const DEFAULT_FROM = "2025-09-11";
 const DEFAULT_TO = "2025-09-11";
+
+const CHECK_IN_NAV = [
+  { name: "Check-In", path: "#check-in-report" },
+  { name: "Check-Out", path: "#check-out-report" },
+  { name: "Chat", path: "/chat" },
+];
 
 const reportDateClass =
   "h-10 w-full min-w-[168px] rounded-lg border border-gray-200 bg-white px-3 text-theme-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-4 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90";
@@ -130,6 +136,7 @@ function ReportTable({
   showEta,
   selectedId,
   onSelect,
+  id,
 }: {
   title: string;
   dateLabel: string;
@@ -137,9 +144,10 @@ function ReportTable({
   showEta: boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  id?: string;
 }) {
   return (
-    <SurfaceCard className="overflow-hidden">
+    <SurfaceCard id={id} className="scroll-mt-6 overflow-hidden">
       <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white/90">
           {title}
@@ -276,6 +284,8 @@ export default function CheckInPage() {
     <PageShell className="space-y-5">
       <PageHeader title="Check-In" />
 
+      <TwoColumnLayout sidebar={<PageSectionNav items={CHECK_IN_NAV} />}>
+        <div className="space-y-5">
       <form
         onSubmit={onRunReport}
         className="rounded-xl border border-gray-200 bg-white px-5 py-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]"
@@ -403,6 +413,7 @@ export default function CheckInPage() {
       />
 
       <ReportTable
+        id="check-in-report"
         title="Check-In"
         dateLabel="Check-In"
         rows={checkIns}
@@ -412,6 +423,7 @@ export default function CheckInPage() {
       />
 
       <ReportTable
+        id="check-out-report"
         title="Check-Out"
         dateLabel="Check-Out"
         rows={checkOuts}
@@ -419,6 +431,8 @@ export default function CheckInPage() {
         selectedId={selectedCheckOutId}
         onSelect={setSelectedCheckOutId}
       />
+        </div>
+      </TwoColumnLayout>
     </PageShell>
   );
 }
