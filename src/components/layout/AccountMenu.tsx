@@ -1,15 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useSupportChatPanel } from "@/context/SupportChatContext";
 import { useModal } from "@/hooks/useModal";
 import { ReportErrorModal } from "@/components/support/ReportErrorModal";
 
 export default function AccountMenu() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const { open: openSupportChat } = useSupportChatPanel();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const reportModal = useModal();
@@ -35,6 +36,11 @@ export default function AccountMenu() {
   function handleReport() {
     setOpen(false);
     reportModal.openModal();
+  }
+
+  function handleSupportChat() {
+    setOpen(false);
+    openSupportChat();
   }
 
   return (
@@ -83,14 +89,14 @@ export default function AccountMenu() {
               Report
             </button>
 
-            <Link
-              href="/chat"
+            <button
+              type="button"
               role="menuitem"
-              onClick={() => setOpen(false)}
-              className="menu-dropdown-item menu-dropdown-item-inactive block"
+              onClick={handleSupportChat}
+              className="menu-dropdown-item menu-dropdown-item-inactive w-full text-left"
             >
               Chat
-            </Link>
+            </button>
 
             <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
 

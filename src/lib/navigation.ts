@@ -18,6 +18,7 @@ export const TOP_NAV_ITEMS: NavItem[] = [
   { name: "Calendar", path: "/calendar" },
   { name: "Guests", path: "/guests" },
   { name: "Guest messages", path: "/messages" },
+  { name: "Client chat", path: "/chat" },
   { name: "Housekeeping", path: "/housekeeping" },
 ];
 
@@ -28,7 +29,6 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: "Check-In", path: "/check-in" },
       { name: "Booking activity", path: "/booking-activity" },
-      { name: "Chat", path: "/chat" },
     ],
   },
   {
@@ -56,7 +56,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   "/yield-rules": "Yield Rules",
   "/insights": "Insights",
   "/messages": "Guest messages",
-  "/chat": "Chat",
+  "/chat": "Client chat",
   "/booking-activity": "Booking activity",
 };
 
@@ -96,6 +96,7 @@ export function routeSection(pathname: string): string {
   if (pathname.startsWith("/calendar")) return "Calendar";
   if (pathname.startsWith("/guests")) return "Guests";
   if (pathname.startsWith("/messages")) return "Guest messages";
+  if (pathname.startsWith("/chat")) return "Client chat";
   if (pathname.startsWith("/housekeeping")) return "Housekeeping";
   if (pathname.startsWith("/check-in")) return "Report";
 
