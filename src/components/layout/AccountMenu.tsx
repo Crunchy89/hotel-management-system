@@ -95,7 +95,7 @@ export default function AccountMenu() {
               onClick={handleSupportChat}
               className="menu-dropdown-item menu-dropdown-item-inactive w-full text-left"
             >
-              Chat
+              HMS Support
             </button>
 
             <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
