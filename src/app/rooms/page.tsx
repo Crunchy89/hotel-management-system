@@ -1,8 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import RoomTypeDialog, {
+  type RoomTypeFormValues,
+} from "@/components/calendar/RoomTypeDialog";
 import ComponentCard from "@/components/common/ComponentCard";
 import PageHeader from "@/components/common/PageHeader";
+import { amenitySummary } from "@/components/rooms/roomTypeAmenities";
 import { RoomStatusBadge } from "@/components/StatusBadge";
 import { Alert, Field, inputClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
@@ -21,7 +25,7 @@ import {
 } from "@/components/ui/table";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
-import type { Room } from "@/lib/types";
+import type { Room, RoomTypeRecord } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
 
 const emptyForm = {
@@ -38,6 +42,11 @@ export default function RoomsPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const { isOpen, openModal, closeModal } = useModal();
+
+  const [editingRoomType, setEditingRoomType] = useState<RoomTypeRecord | null>(
+    null,
+  );
+  const roomTypeModal = useModal();
 
   function openCreate() {
     setEditing(null);
@@ -58,6 +67,16 @@ export default function RoomsPage() {
       rate: room.rate,
     });
     openModal();
+  }
+
+  function openCreateRoomType() {
+    setEditingRoomType(null);
+    roomTypeModal.openModal();
+  }
+
+  function openEditRoomType(type: RoomTypeRecord) {
+    setEditingRoomType(type);
+    roomTypeModal.openModal();
   }
 
   async function onSubmit(e: FormEvent) {
@@ -81,8 +100,25 @@ export default function RoomsPage() {
     await mutate(() => api.setRoomStatus(id, status));
   }
 
-  const typeLabel = (slug: string) =>
-    room_types.find((t) => t.slug === slug)?.label ?? slug;
+  const onSaveRoomType = (values: RoomTypeFormValues) =>
+    mutate(() =>
+      editingRoomType
+        ? api.updateRoomType({ id: editingRoomType.id, ...values })
+        : api.createRoomType(values),
+    );
+
+  const onDeleteRoomType = () =>
+    editingRoomType
+      ? mutate(() => api.deleteRoomType(editingRoomType.id))
+      : Promise.resolve(false);
+
+  const typeRecord = (slug: string) =>
+    room_types.find((t) => t.slug === slug) ?? null;
+
+  const typeLabel = (slug: string) => typeRecord(slug)?.label ?? slug;
+
+  const roomsForType = (slug: string) =>
+    rooms.filter((r) => r.type === slug).length;
 
   return (
     <PageShell>
@@ -90,13 +126,82 @@ export default function RoomsPage() {
         title="Manage Room"
         description="Inventory, rates, and housekeeping status."
         action={
-          <Button size="sm" onClick={openCreate}>
-            Add room
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" onClick={openCreateRoomType}>
+              Add room type
+            </Button>
+            <Button size="sm" onClick={openCreate}>
+              Add room
+            </Button>
+          </div>
         }
       />
 
       {error && <Alert>{error}</Alert>}
+
+      <ComponentCard
+        title="Room types"
+        desc="Bed size and amenities are shared by every room of the type."
+      >
+        <div className="custom-scrollbar overflow-x-auto">
+          <Table>
+            <TableHeader className="border-b border-gray-100 dark:border-gray-800">
+              <TableRow>
+                <TableCell isHeader className={tableHeaderCell}>
+                  Type
+                </TableCell>
+                <TableCell isHeader className={tableHeaderCell}>
+                  Bed & amenities
+                </TableCell>
+                <TableCell isHeader className={tableHeaderCell}>
+                  Rooms
+                </TableCell>
+                <TableCell isHeader className={tableHeaderCell}>
+                  Actions
+                </TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {room_types.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="px-5 py-8 text-center text-theme-sm text-gray-500 dark:text-gray-400"
+                  >
+                    {loading ? "Loading…" : "No room types yet."}
+                  </TableCell>
+                </TableRow>
+              )}
+              {room_types.map((type) => (
+                <TableRow key={type.id}>
+                  <TableCell
+                    className={`${tableBodyCell} font-semibold text-gray-800 dark:text-white/90`}
+                  >
+                    {type.label}
+                  </TableCell>
+                  <TableCell className={tableBodyCell}>
+                    <span className="text-theme-sm text-gray-600 dark:text-gray-400">
+                      {amenitySummary(type)}
+                    </span>
+                  </TableCell>
+                  <TableCell className={`${tableBodyCell} tabular-nums`}>
+                    {roomsForType(type.slug)}
+                  </TableCell>
+                  <TableCell className={tableBodyCell}>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => openEditRoomType(type)}
+                    >
+                      Edit
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </ComponentCard>
 
       <ComponentCard
         title="Room inventory"
@@ -137,65 +242,77 @@ export default function RoomsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {rooms.map((room) => (
-                <TableRow key={room.id}>
-                  <TableCell
-                    className={`${tableBodyCell} font-semibold text-gray-800 dark:text-white/90`}
-                  >
-                    {room.number}
-                  </TableCell>
-                  <TableCell className={tableBodyCell}>
-                    {typeLabel(room.type)}
-                  </TableCell>
-                  <TableCell className={`${tableBodyCell} tabular-nums`}>
-                    {room.floor}
-                  </TableCell>
-                  <TableCell className={`${tableBodyCell} tabular-nums`}>
-                    ${room.rate.toFixed(2)}
-                  </TableCell>
-                  <TableCell className={tableBodyCell}>
-                    <RoomStatusBadge status={room.status} />
-                  </TableCell>
-                  <TableCell className={tableBodyCell}>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={() => openEdit(room)}
-                      >
-                        Edit
-                      </Button>
-                      {room.status === "cleaning" && (
+              {rooms.map((room) => {
+                const type = typeRecord(room.type);
+                return (
+                  <TableRow key={room.id}>
+                    <TableCell
+                      className={`${tableBodyCell} font-semibold text-gray-800 dark:text-white/90`}
+                    >
+                      {room.number}
+                    </TableCell>
+                    <TableCell className={tableBodyCell}>
+                      <div className="flex flex-col gap-0.5">
+                        <span>{typeLabel(room.type)}</span>
+                        {type && (
+                          <span className="text-theme-xs text-gray-500 dark:text-gray-400">
+                            {amenitySummary(type)}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className={`${tableBodyCell} tabular-nums`}>
+                      {room.floor}
+                    </TableCell>
+                    <TableCell className={`${tableBodyCell} tabular-nums`}>
+                      ${room.rate.toFixed(2)}
+                    </TableCell>
+                    <TableCell className={tableBodyCell}>
+                      <RoomStatusBadge status={room.status} />
+                    </TableCell>
+                    <TableCell className={tableBodyCell}>
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           size="xs"
                           variant="outline"
-                          onClick={() => void setStatus(room.id, "available")}
+                          onClick={() => openEdit(room)}
                         >
-                          Mark available
+                          Edit
                         </Button>
-                      )}
-                      {room.status === "available" && (
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => void setStatus(room.id, "maintenance")}
-                        >
-                          Maintenance
-                        </Button>
-                      )}
-                      {room.status === "maintenance" && (
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => void setStatus(room.id, "available")}
-                        >
-                          Clear maintenance
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        {room.status === "cleaning" && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => void setStatus(room.id, "available")}
+                          >
+                            Mark available
+                          </Button>
+                        )}
+                        {room.status === "available" && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() =>
+                              void setStatus(room.id, "maintenance")
+                            }
+                          >
+                            Maintenance
+                          </Button>
+                        )}
+                        {room.status === "maintenance" && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => void setStatus(room.id, "available")}
+                          >
+                            Clear maintenance
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -210,7 +327,8 @@ export default function RoomsPage() {
           {editing ? "Edit room" : "Add room"}
         </h4>
         <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-          Configure the room number, type, rate, and housekeeping status.
+          Configure the room number, type, rate, and housekeeping status. Bed
+          and amenities come from the room type.
         </p>
 
         <form onSubmit={onSubmit}>
@@ -236,6 +354,11 @@ export default function RoomsPage() {
                 ))}
               </select>
             </Field>
+            {typeRecord(form.type) && (
+              <p className="sm:col-span-2 text-theme-xs text-gray-500 dark:text-gray-400">
+                Inherits: {amenitySummary(typeRecord(form.type)!)}
+              </p>
+            )}
             <Field label="Floor">
               <input
                 className={inputClass}
@@ -285,6 +408,14 @@ export default function RoomsPage() {
           </div>
         </form>
       </Modal>
+
+      <RoomTypeDialog
+        isOpen={roomTypeModal.isOpen}
+        onClose={roomTypeModal.closeModal}
+        editing={editingRoomType}
+        onSave={onSaveRoomType}
+        onDelete={editingRoomType ? onDeleteRoomType : undefined}
+      />
     </PageShell>
   );
 }

@@ -17,6 +17,8 @@ import type {
   RatePlan,
   Reservation,
   Room,
+  BedSize,
+  RoomTypeAmenities,
   RoomTypeRecord,
   SendGuestMessageInput,
   UpdateChannelInput,
@@ -94,25 +96,148 @@ function slugify(label: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+const BED_SIZES = new Set<BedSize>([
+  "single",
+  "twin",
+  "double",
+  "queen",
+  "king",
+]);
+
+/** Sensible defaults when seeding or backfilling older localStorage data. */
+function defaultsForRoomTypeSlug(slug: string): {
+  bed_size: BedSize;
+  amenities: RoomTypeAmenities;
+} {
+  if (slug === "suite" || slug === "family") {
+    return {
+      bed_size: "king",
+      amenities: {
+        ac: true,
+        tv: true,
+        wifi: true,
+        minibar: true,
+        bathtub: true,
+        safe: true,
+        hairdryer: true,
+        desk: true,
+      },
+    };
+  }
+  if (slug === "deluxe") {
+    return {
+      bed_size: "queen",
+      amenities: {
+        ac: true,
+        tv: true,
+        wifi: true,
+        minibar: true,
+        bathtub: true,
+        safe: false,
+        hairdryer: true,
+        desk: true,
+      },
+    };
+  }
+  if (slug === "twin") {
+    return {
+      bed_size: "twin",
+      amenities: {
+        ac: true,
+        tv: true,
+        wifi: true,
+        minibar: false,
+        bathtub: false,
+        safe: false,
+        hairdryer: true,
+        desk: false,
+      },
+    };
+  }
+  return {
+    bed_size: "queen",
+    amenities: {
+      ac: true,
+      tv: true,
+      wifi: true,
+      minibar: false,
+      bathtub: false,
+      safe: false,
+      hairdryer: false,
+      desk: false,
+    },
+  };
+}
+
+function mergeAmenities(
+  base: RoomTypeAmenities,
+  patch?: Partial<RoomTypeAmenities>,
+): RoomTypeAmenities {
+  if (!patch) return { ...base };
+  return { ...base, ...patch };
+}
+
+function normalizeBedSize(value: unknown, fallback: BedSize): BedSize {
+  return typeof value === "string" && BED_SIZES.has(value as BedSize)
+    ? (value as BedSize)
+    : fallback;
+}
+
+function normalizeAmenities(
+  value: unknown,
+  fallback: RoomTypeAmenities,
+): RoomTypeAmenities {
+  if (!value || typeof value !== "object") return { ...fallback };
+  const raw = value as Partial<Record<keyof RoomTypeAmenities, unknown>>;
+  return {
+    ac: typeof raw.ac === "boolean" ? raw.ac : fallback.ac,
+    tv: typeof raw.tv === "boolean" ? raw.tv : fallback.tv,
+    wifi: typeof raw.wifi === "boolean" ? raw.wifi : fallback.wifi,
+    minibar: typeof raw.minibar === "boolean" ? raw.minibar : fallback.minibar,
+    bathtub: typeof raw.bathtub === "boolean" ? raw.bathtub : fallback.bathtub,
+    safe: typeof raw.safe === "boolean" ? raw.safe : fallback.safe,
+    hairdryer:
+      typeof raw.hairdryer === "boolean" ? raw.hairdryer : fallback.hairdryer,
+    desk: typeof raw.desk === "boolean" ? raw.desk : fallback.desk,
+  };
+}
+
+function normalizeRoomType(
+  raw: Partial<RoomTypeRecord> & { slug: string; label: string },
+  sort_order: number,
+): RoomTypeRecord {
+  const defaults = defaultsForRoomTypeSlug(raw.slug);
+  return {
+    id: raw.id || uid(),
+    slug: raw.slug,
+    label: raw.label,
+    sort_order: raw.sort_order ?? sort_order,
+    bed_size: normalizeBedSize(raw.bed_size, defaults.bed_size),
+    amenities: normalizeAmenities(raw.amenities, defaults.amenities),
+  };
+}
+
 function defaultRoomTypes(): RoomTypeRecord[] {
   return Object.entries(DEFAULT_ROOM_TYPE_LABELS).map(
-    ([slug, label], sort_order) => ({
-      id: uid(),
-      slug,
-      label,
-      sort_order,
-    }),
+    ([slug, label], sort_order) =>
+      normalizeRoomType({ slug, label, sort_order }, sort_order),
   );
 }
 
 function deriveRoomTypes(rooms: Room[]): RoomTypeRecord[] {
   const slugs = [...new Set(rooms.map((r) => r.type))].sort();
-  return slugs.map((slug, sort_order) => ({
-    id: uid(),
-    slug,
-    label: DEFAULT_ROOM_TYPE_LABELS[slug] ?? slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-    sort_order,
-  }));
+  return slugs.map((slug, sort_order) =>
+    normalizeRoomType(
+      {
+        slug,
+        label:
+          DEFAULT_ROOM_TYPE_LABELS[slug] ??
+          slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        sort_order,
+      },
+      sort_order,
+    ),
+  );
 }
 
 function normalizeData(raw: Partial<StoreData>): StoreData {
@@ -121,7 +246,7 @@ function normalizeData(raw: Partial<StoreData>): StoreData {
   const reservations = raw.reservations ?? [];
   const room_types =
     raw.room_types && raw.room_types.length > 0
-      ? raw.room_types
+      ? raw.room_types.map((t, i) => normalizeRoomType(t, i))
       : deriveRoomTypes(rooms);
 
   return {
@@ -931,7 +1056,17 @@ export function createRoomType(input: CreateRoomTypeInput): RoomTypeRecord {
         ? Math.max(...data.room_types.map((t) => t.sort_order)) + 1
         : 0);
 
-    const record: RoomTypeRecord = { id: uid(), slug, label, sort_order };
+    const record: RoomTypeRecord = {
+      id: uid(),
+      slug,
+      label,
+      sort_order,
+      bed_size: input.bed_size ?? defaultsForRoomTypeSlug(slug).bed_size,
+      amenities: mergeAmenities(
+        defaultsForRoomTypeSlug(slug).amenities,
+        input.amenities,
+      ),
+    };
     data.room_types.push(record);
     return record;
   });
@@ -951,6 +1086,12 @@ export function updateRoomType(input: UpdateRoomTypeInput): RoomTypeRecord {
       ...current,
       label,
       sort_order: input.sort_order ?? current.sort_order,
+      bed_size: input.bed_size
+        ? normalizeBedSize(input.bed_size, current.bed_size)
+        : current.bed_size,
+      amenities: input.amenities
+        ? mergeAmenities(current.amenities, input.amenities)
+        : current.amenities,
     };
     data.room_types[idx] = record;
     return record;

@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import TapeChart from "@/components/calendar/TapeChart";
-import RoomTypeDialog from "@/components/calendar/RoomTypeDialog";
+import RoomTypeDialog, {
+  type RoomTypeFormValues,
+} from "@/components/calendar/RoomTypeDialog";
 import AvailableRoomsModal from "@/components/reservations/AvailableRoomsModal";
 import FindBookingModal, {
   type BookingQuery,
@@ -262,10 +264,10 @@ export default function ReservationsPage() {
       return api.cancelReservation(id);
     });
 
-  const onSaveRoomType = (values: { label: string }) =>
+  const onSaveRoomType = (values: RoomTypeFormValues) =>
     mutate(() =>
       editingRoomType
-        ? api.updateRoomType({ id: editingRoomType.id, label: values.label })
+        ? api.updateRoomType({ id: editingRoomType.id, ...values })
         : api.createRoomType(values),
     );
 

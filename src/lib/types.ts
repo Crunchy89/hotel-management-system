@@ -54,22 +54,41 @@ export interface UpsertRateEntryInput {
 }
 export type RoomType = "standard" | "deluxe" | "suite";
 
+export type BedSize = "single" | "twin" | "double" | "queen" | "king";
+
+export interface RoomTypeAmenities {
+  ac: boolean;
+  tv: boolean;
+  wifi: boolean;
+  minibar: boolean;
+  bathtub: boolean;
+  safe: boolean;
+  hairdryer: boolean;
+  desk: boolean;
+}
+
 export interface RoomTypeRecord {
   id: string;
   slug: string;
   label: string;
   sort_order: number;
+  bed_size: BedSize;
+  amenities: RoomTypeAmenities;
 }
 
 export interface CreateRoomTypeInput {
   label: string;
   sort_order?: number;
+  bed_size?: BedSize;
+  amenities?: Partial<RoomTypeAmenities>;
 }
 
 export interface UpdateRoomTypeInput {
   id: string;
   label: string;
   sort_order?: number;
+  bed_size?: BedSize;
+  amenities?: Partial<RoomTypeAmenities>;
 }
 export type ReservationStatus =
   | "booked"
