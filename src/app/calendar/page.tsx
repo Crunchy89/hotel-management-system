@@ -1,5 +1,5 @@
-import BookingCalendar from "@/components/calendar/BookingCalendar";
+import { redirect } from "next/navigation";
 
 export default function CalendarPage() {
-  return <BookingCalendar />;
+  redirect("/reservations");
 }

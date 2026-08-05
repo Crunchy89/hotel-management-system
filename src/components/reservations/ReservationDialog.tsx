@@ -31,6 +31,13 @@ const TABS: { id: ReservationTab; label: string }[] = [
 
 const selectClass = inputClass;
 
+const stayDateFormat: Intl.DateTimeFormatOptions = {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+};
+
 interface ReservationDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -147,6 +154,9 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
   }, [isOpen, initial, guests, rooms]);
 
   const isUnallocated = Boolean(form.room_type && !form.room_id);
+  const datesValid = Boolean(
+    form.check_in && form.check_out && form.check_out > form.check_in,
+  );
   const nights = Math.max(0, dayDiff(form.check_in, form.check_out));
   const selectedRoom = rooms.find((r) => r.id === form.room_id);
   const typeSlug = form.room_type || selectedRoom?.type || "";
@@ -227,40 +237,28 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
           <div className="min-w-0 flex-1 space-y-6">
             {tab === "details" && (
               <>
-                {/* Dates */}
+                {/* Stay dates come from the availability search */}
                 <section className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <Field label="Check-in">
-                      <input
-                        className={inputClass}
-                        type="date"
-                        required
-                        value={form.check_in}
-                        onChange={(e) => patch({ check_in: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="Check-out">
-                      <input
-                        className={inputClass}
-                        type="date"
-                        required
-                        value={form.check_out}
-                        onChange={(e) => patch({ check_out: e.target.value })}
-                      />
-                    </Field>
-                    <div className="flex items-end sm:col-span-2">
-                      <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <input
-                          type="checkbox"
-                          checked={form.hold_rate}
-                          onChange={(e) =>
-                            patch({ hold_rate: e.target.checked })
-                          }
-                          className="rounded border-gray-300 text-brand-500"
-                        />
-                        Hold rate for selected dates
-                      </label>
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Stay dates
+                      </p>
+                      <p className="mt-1 text-theme-lg font-semibold text-gray-800 dark:text-white/90">
+                        {datesValid
+                          ? `${formatDate(form.check_in, stayDateFormat)} → ${formatDate(form.check_out, stayDateFormat)}`
+                          : "No dates selected"}
+                      </p>
                     </div>
+                    <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <input
+                        type="checkbox"
+                        checked={form.hold_rate}
+                        onChange={(e) => patch({ hold_rate: e.target.checked })}
+                        className="rounded border-gray-300 text-brand-500"
+                      />
+                      Hold rate for selected dates
+                    </label>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
                     <span>
@@ -756,15 +754,15 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
         {/* Footer */}
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {form.check_in && form.check_out
+            {datesValid
               ? `${formatDate(form.check_in)} → ${formatDate(form.check_out)} · ${formatStayLength(nights)}`
-              : "Select dates to continue"}
+              : "Search available rooms to pick the stay dates"}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button size="sm" variant="outline" type="button" onClick={onClose}>
               Close
             </Button>
-            <Button size="sm" type="submit" disabled={saving}>
+            <Button size="sm" type="submit" disabled={saving || !datesValid}>
               {saving ? "Saving…" : "Confirm booking"}
             </Button>
           </div>

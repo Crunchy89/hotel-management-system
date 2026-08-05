@@ -33,9 +33,11 @@ import type {
   BookingActivityKind,
   PaymentCollect,
   UpdateReservationPaymentInput,
+  KeyCard,
+  MoveReservationRoomInput,
+  WriteKeyCardInput,
 } from "@/lib/types";
 import { folioBalance, folioPaymentsNet, stayTotal } from "@/lib/folio";
-import { dayDiff } from "@/lib/metrics";
 import { renderMessageTemplate } from "@/lib/messaging";
 
 const STORAGE_KEY = "hms-hotel-data-v3";
@@ -54,6 +56,7 @@ type StoreData = {
   folio_lines: FolioLine[];
   guest_messages: GuestMessage[];
   booking_activities: BookingActivity[];
+  key_cards: KeyCard[];
 };
 
 const PACKAGE_TEMPLATES: Array<{
@@ -135,6 +138,7 @@ function normalizeData(raw: Partial<StoreData>): StoreData {
     folio_lines: raw.folio_lines ?? [],
     guest_messages: raw.guest_messages ?? [],
     booking_activities: raw.booking_activities ?? [],
+    key_cards: raw.key_cards ?? [],
   };
 }
 
@@ -440,6 +444,9 @@ function logBookingActivity(
     booking_cancelled: "Booking cancelled",
     check_in: "Guest checked in",
     check_out: "Guest checked out",
+    room_moved: "Guest moved to another room",
+    key_written: "Key card encoded",
+    key_revoked: "Key card revoked",
   };
 
   data.booking_activities.push({
@@ -788,6 +795,7 @@ function seedData(): StoreData {
     folio_lines: [],
     guest_messages: [],
     booking_activities: [],
+    key_cards: [],
   };
   ensureAll(data);
   return data;
@@ -807,6 +815,7 @@ const EMPTY_DATA: StoreData = {
   folio_lines: [],
   guest_messages: [],
   booking_activities: [],
+  key_cards: [],
 };
 
 /**
@@ -1361,7 +1370,217 @@ export function checkOut(id: string): Reservation {
     logBookingActivity(data, "check_out", reservation, {
       created_at: reservation.updated_at,
     });
+    revokeActiveKeyCards(
+      data,
+      reservation,
+      "Key card revoked at check-out",
+      reservation.updated_at,
+    );
     return enrichReservation(data, reservation);
+  });
+}
+
+/** Kills any live card for a stay; the door should stop opening immediately. */
+function revokeActiveKeyCards(
+  data: StoreData,
+  reservation: Reservation,
+  description: string,
+  at: string,
+): void {
+  for (const card of data.key_cards) {
+    if (card.reservation_id !== reservation.id) continue;
+    if (card.status !== "active") continue;
+
+    card.status = "revoked";
+    card.revoked_at = at;
+    card.updated_at = at;
+    logBookingActivity(data, "key_revoked", reservation, {
+      description,
+      created_at: at,
+    });
+  }
+}
+
+export function moveReservationRoom(
+  input: MoveReservationRoomInput,
+): Reservation {
+  if (!input.room_id) throw new Error("choose a room to move into");
+
+  return withData((data) => {
+    const reservation = data.reservations.find((r) => r.id === input.id);
+    if (!reservation) throw new Error("reservation not found");
+    if (reservation.status === "cancelled") {
+      throw new Error("cancelled bookings cannot be moved");
+    }
+    if (reservation.status === "checked_out") {
+      throw new Error("checked-out bookings cannot be moved");
+    }
+    if (reservation.room_id === input.room_id) {
+      throw new Error("booking is already in that room");
+    }
+
+    const target = data.rooms.find((r) => r.id === input.room_id);
+    if (!target) throw new Error("room not found");
+    if (target.status === "maintenance") {
+      throw new Error("room is under maintenance");
+    }
+
+    const overlap = data.reservations.some(
+      (r) =>
+        r.id !== reservation.id &&
+        r.room_id === target.id &&
+        (r.status === "booked" || r.status === "checked_in") &&
+        r.check_in < reservation.check_out &&
+        r.check_out > reservation.check_in,
+    );
+    if (overlap) {
+      throw new Error("target room already has a booking for these dates");
+    }
+
+    const previous = data.rooms.find((r) => r.id === reservation.room_id);
+    const previousLabel = previous ? `Room ${previous.number}` : "Unallocated";
+
+    if (reservation.status === "checked_in") {
+      if (previous) previous.status = "cleaning";
+      target.status = "occupied";
+    }
+
+    reservation.room_id = target.id;
+    reservation.room_type = undefined;
+    reservation.updated_at = new Date().toISOString();
+
+    // The key encodes the room, so any live card must be re-written.
+    revokeActiveKeyCards(
+      data,
+      reservation,
+      "Key card revoked after room move",
+      reservation.updated_at,
+    );
+
+    logBookingActivity(data, "room_moved", reservation, {
+      description: `Moved from ${previousLabel} to Room ${target.number}`,
+      created_at: reservation.updated_at,
+    });
+
+    return enrichReservation(data, reservation);
+  });
+}
+
+function keyCardCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 12; i += 1) {
+    if (i > 0 && i % 4 === 0) code += "-";
+    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return code;
+}
+
+function keyCardPayload(
+  data: StoreData,
+  reservation: Reservation,
+  code: string,
+): string {
+  const room = data.rooms.find((r) => r.id === reservation.room_id);
+  return JSON.stringify({
+    ref: reservation.reference ?? reservation.id.slice(0, 8).toUpperCase(),
+    room: room?.number ?? "",
+    in: reservation.check_in,
+    out: reservation.check_out,
+    key: code,
+  });
+}
+
+export function listKeyCards(reservationId?: string): KeyCard[] {
+  const cards = read().key_cards;
+  const filtered = reservationId
+    ? cards.filter((c) => c.reservation_id === reservationId)
+    : [...cards];
+  return filtered.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+}
+
+export function writeKeyCard(input: WriteKeyCardInput): KeyCard {
+  return withData((data) => {
+    const reservation = data.reservations.find(
+      (r) => r.id === input.reservation_id,
+    );
+    if (!reservation) throw new Error("reservation not found");
+    if (reservation.status === "cancelled") {
+      throw new Error("cannot encode a key for a cancelled booking");
+    }
+    if (reservation.status === "checked_out") {
+      throw new Error("cannot encode a key for a checked-out booking");
+    }
+    if (!reservation.room_id) {
+      throw new Error("assign a room before encoding a key card");
+    }
+
+    const now = new Date().toISOString();
+    const code = keyCardCode();
+    const qr_payload = keyCardPayload(data, reservation, code);
+
+    let card = data.key_cards.find(
+      (c) => c.reservation_id === reservation.id,
+    );
+
+    if (card) {
+      card.room_id = reservation.room_id;
+      card.code = code;
+      card.qr_payload = qr_payload;
+      card.status = "active";
+      card.write_count += 1;
+      card.written_at = now;
+      card.revoked_at = undefined;
+      card.updated_at = now;
+    } else {
+      card = {
+        id: uid(),
+        reservation_id: reservation.id,
+        room_id: reservation.room_id,
+        code,
+        qr_payload,
+        status: "active",
+        write_count: 1,
+        written_at: now,
+        created_at: now,
+        updated_at: now,
+      };
+      data.key_cards.push(card);
+    }
+
+    logBookingActivity(data, "key_written", reservation, {
+      description:
+        card.write_count > 1
+          ? `Key card re-written (write ${card.write_count})`
+          : "Key card encoded",
+      created_at: now,
+    });
+
+    return { ...card };
+  });
+}
+
+export function revokeKeyCard(id: string): KeyCard {
+  return withData((data) => {
+    const card = data.key_cards.find((c) => c.id === id);
+    if (!card) throw new Error("key card not found");
+    if (card.status === "revoked") throw new Error("key card already revoked");
+
+    const now = new Date().toISOString();
+    card.status = "revoked";
+    card.revoked_at = now;
+    card.updated_at = now;
+
+    const reservation = data.reservations.find(
+      (r) => r.id === card.reservation_id,
+    );
+    if (reservation) {
+      logBookingActivity(data, "key_revoked", reservation, {
+        created_at: now,
+      });
+    }
+
+    return { ...card };
   });
 }
 
@@ -2001,6 +2220,7 @@ type Snapshot = {
   folio_lines: FolioLine[];
   guest_messages: GuestMessage[];
   booking_activities: BookingActivity[];
+  key_cards: KeyCard[];
   stats: DashboardStats;
 };
 
@@ -2018,6 +2238,7 @@ const EMPTY_SNAPSHOT: Snapshot = {
   folio_lines: [],
   guest_messages: [],
   booking_activities: [],
+  key_cards: [],
   stats: {
     available_rooms: 0,
     occupied_rooms: 0,
@@ -2049,6 +2270,7 @@ export function getSnapshot(): Snapshot {
       folio_lines: listFolioLines(),
       guest_messages: listGuestMessages(),
       booking_activities: listBookingActivities(),
+      key_cards: listKeyCards(),
       stats: getDashboardStats(),
     };
     snapshotVersion = version;

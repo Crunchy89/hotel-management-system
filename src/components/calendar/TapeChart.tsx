@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import {
   addDays,
+  availableRoomsForDates,
   coversDate,
   dateRange,
   dayDiff,
@@ -17,6 +18,7 @@ const ROOM_COL = 260;
 const ROW_H = 56;
 const GROUP_H = 40;
 const UNALLOCATED_H = 48;
+const AVAILABILITY_H = 40;
 
 /** Wider columns for short ranges so the chart fills the page at every zoom. */
 function dayWidth(days: number): number {
@@ -32,6 +34,8 @@ const barStyles: Record<string, string> = {
     "bg-success-500 text-white ring-success-600/20 hover:bg-success-600",
   checked_out:
     "bg-gray-200 text-gray-600 ring-gray-300/40 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
+  cancelled:
+    "border border-dashed border-gray-400 bg-gray-50 text-gray-400 line-through ring-transparent hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800",
 };
 
 type BarEntry = {
@@ -57,8 +61,11 @@ interface TapeChartProps {
   rooms: Room[];
   roomTypes: RoomTypeRecord[];
   reservations: Reservation[];
+  /** Unfiltered bookings, so the availability row ignores the calendar filter. */
+  availabilityReservations?: Reservation[];
   start: string;
   days: number;
+  showCancelled?: boolean;
   onSelectReservation: (reservation: Reservation) => void;
   onSelectCell: (room: Room, date: string) => void;
   onSelectUnallocatedCell: (typeSlug: string, date: string) => void;
@@ -66,17 +73,24 @@ interface TapeChartProps {
   onEditRoomType: (type: RoomTypeRecord) => void;
 }
 
+/** Cancelled stays are hidden unless the user asks to see them. */
+function isVisible(reservation: Reservation, showCancelled: boolean): boolean {
+  if (isActive(reservation)) return true;
+  return showCancelled && reservation.status === "cancelled";
+}
+
 function buildBars(
   reservations: Reservation[],
   start: string,
   end: string,
   days: number,
+  showCancelled: boolean,
   match: (reservation: Reservation) => boolean,
 ): BarEntry[] {
   const bars: BarEntry[] = [];
 
   for (const reservation of reservations) {
-    if (!isActive(reservation)) continue;
+    if (!isVisible(reservation, showCancelled)) continue;
     if (!match(reservation)) continue;
     if (reservation.check_in >= end || reservation.check_out <= start) continue;
 
@@ -109,7 +123,9 @@ function renderBars(
       type="button"
       onClick={() => onSelectReservation(reservation)}
       title={`${reservation.guest_name} · ${reservation.check_in} → ${reservation.check_out}`}
-      className={`pointer-events-auto z-10 m-2 flex items-center overflow-hidden px-3 text-left shadow-theme-xs ring-1 transition-colors ${
+      className={`pointer-events-auto m-2 flex items-center overflow-hidden px-3 text-left shadow-theme-xs ring-1 transition-colors ${
+        reservation.status === "cancelled" ? "z-[5]" : "z-10"
+      } ${
         barStyles[reservation.status] ?? barStyles.booked
       } ${clippedStart ? "rounded-l-none" : "rounded-l-full"} ${
         clippedEnd ? "rounded-r-none" : "rounded-r-full"
@@ -130,8 +146,10 @@ const TapeChart: React.FC<TapeChartProps> = ({
   rooms,
   roomTypes,
   reservations,
+  availabilityReservations,
   start,
   days,
+  showCancelled = false,
   onSelectReservation,
   onSelectCell,
   onSelectUnallocatedCell,
@@ -197,7 +215,7 @@ const TapeChart: React.FC<TapeChartProps> = ({
     const map = new Map<string, BarEntry[]>();
     for (const reservation of reservations) {
       if (!reservation.room_id) continue;
-      if (!isActive(reservation)) continue;
+      if (!isVisible(reservation, showCancelled)) continue;
       if (reservation.check_in >= end || reservation.check_out <= start) continue;
 
       const rawStart = dayDiff(start, reservation.check_in);
@@ -217,7 +235,7 @@ const TapeChart: React.FC<TapeChartProps> = ({
       map.set(reservation.room_id, list);
     }
     return map;
-  }, [reservations, start, end, days]);
+  }, [reservations, start, end, days, showCancelled]);
 
   const barsByUnallocated = useMemo(() => {
     const map = new Map<string, BarEntry[]>();
@@ -229,12 +247,21 @@ const TapeChart: React.FC<TapeChartProps> = ({
           start,
           end,
           days,
+          showCancelled,
           (r) => !r.room_id && r.room_type === type.slug,
         ),
       );
     }
     return map;
-  }, [reservations, roomTypes, start, end, days]);
+  }, [reservations, roomTypes, start, end, days, showCancelled]);
+
+  const availabilityByDate = useMemo(() => {
+    const source = availabilityReservations ?? reservations;
+    return dates.map(
+      (date) =>
+        availableRoomsForDates(rooms, source, date, addDays(date, 1)).length,
+    );
+  }, [dates, rooms, availabilityReservations, reservations]);
 
   function toggleGroup(slug: string) {
     setCollapsed((prev) => {
@@ -254,12 +281,13 @@ const TapeChart: React.FC<TapeChartProps> = ({
   }
 
   return (
-    <div className="custom-scrollbar overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+    // z-0 traps the sticky room column in its own stacking context, below the header.
+    <div className="custom-scrollbar relative z-0 overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div
         className="grid w-max"
         style={{
           gridTemplateColumns,
-          gridTemplateRows: `48px ${rows.map(rowHeight).join(" ")}px`,
+          gridTemplateRows: `48px ${AVAILABILITY_H}px ${rows.map(rowHeight).join(" ")}px`,
         }}
       >
         {/* Sticky corner */}
@@ -312,9 +340,41 @@ const TapeChart: React.FC<TapeChartProps> = ({
           );
         })}
 
+        {/* Rooms available per day */}
+        <div
+          className="sticky left-0 z-30 flex items-center border-b border-r border-gray-200 bg-gray-50 px-4 dark:border-gray-800 dark:bg-gray-900"
+          style={{ gridColumn: 1, gridRow: 2 }}
+        >
+          <span className="text-theme-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+            Rooms available
+          </span>
+        </div>
+        {dates.map((date, i) => {
+          const free = availabilityByDate[i] ?? 0;
+          const soldOut = free === 0;
+          const tight = !soldOut && free <= 2;
+
+          return (
+            <div
+              key={`avail-${date}`}
+              title={`${free} room${free === 1 ? "" : "s"} free on ${date}`}
+              className={`flex items-center justify-center border-b border-r border-gray-200 text-theme-xs font-semibold tabular-nums dark:border-gray-800 ${
+                soldOut
+                  ? "bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400"
+                  : tight
+                    ? "bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400"
+                    : "bg-gray-50 text-gray-600 dark:bg-gray-900 dark:text-gray-300"
+              }`}
+              style={{ gridColumn: i + 2, gridRow: 2 }}
+            >
+              {soldOut ? "Full" : free}
+            </div>
+          );
+        })}
+
         {/* Body */}
         {rows.map((row, rowIdx) => {
-          const gridRow = rowIdx + 2;
+          const gridRow = rowIdx + 3;
 
           if (row.kind === "group") {
             return (
@@ -383,8 +443,10 @@ const TapeChart: React.FC<TapeChartProps> = ({
 
                 {dates.map((date, i) => {
                   const isToday = date === today;
-                  const taken = bars.some((b) =>
-                    coversDate(b.reservation, date),
+                  const taken = bars.some(
+                    (b) =>
+                      b.reservation.status !== "cancelled" &&
+                      coversDate(b.reservation, date),
                   );
 
                   return (
@@ -441,8 +503,10 @@ const TapeChart: React.FC<TapeChartProps> = ({
 
               {dates.map((date, i) => {
                 const isToday = date === today;
-                const taken = bars.some((b) =>
-                  coversDate(b.reservation, date),
+                const taken = bars.some(
+                  (b) =>
+                    b.reservation.status !== "cancelled" &&
+                    coversDate(b.reservation, date),
                 );
 
                 return (

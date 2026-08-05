@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { ReservationStatusBadge } from "@/components/StatusBadge";
+import {
+  BookingSourceBadge,
+  ReservationStatusBadge,
+} from "@/components/StatusBadge";
 import FolioTab from "@/components/reservations/FolioTab";
+import KeyCardPanel from "@/components/reservations/KeyCardPanel";
 import { PaymentStatusBadge } from "@/components/reservations/PaymentStatusBadge";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
@@ -30,6 +34,7 @@ const TABS: { id: ReservationTab; label: string }[] = [
   { id: "details", label: "Details" },
   { id: "guest", label: "Guest" },
   { id: "folio", label: "Folio" },
+  { id: "keycard", label: "Key card" },
   { id: "notes", label: "Notes" },
 ];
 
@@ -41,6 +46,9 @@ interface ReservationDetailDialogProps {
   rooms: Room[];
   roomTypes: RoomTypeRecord[];
   onAction: (action: ReservationAction, id: string) => Promise<boolean>;
+  onMoveRoom?: (reservation: Reservation) => void;
+  /** Fired once a check-in succeeds, so the key encoder can be offered. */
+  onCheckedIn?: (reservation: Reservation) => void;
 }
 
 function DetailRow({
@@ -69,17 +77,26 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
   rooms,
   roomTypes,
   onAction,
+  onMoveRoom,
+  onCheckedIn,
 }) => {
   const [tab, setTab] = useState<ReservationTab>("details");
   const [paymentCollect, setPaymentCollect] = useState<PaymentCollect>("property");
   const [savingPayment, setSavingPayment] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const { folio_lines, mutate } = useHotelData();
 
   useEffect(() => {
     if (reservation) {
       setPaymentCollect(reservation.payment_collect ?? "property");
     }
+    setConfirmCancel(false);
   }, [reservation]);
+
+  function close() {
+    setConfirmCancel(false);
+    onClose();
+  }
 
   const form = useMemo(
     () => (reservation ? reservationToForm(reservation, guest ?? undefined) : null),
@@ -98,6 +115,8 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
 
   const room = rooms.find((r) => r.id === reservation.room_id);
   const isUnallocated = !reservation.room_id && Boolean(reservation.room_type);
+  const isActiveStay =
+    reservation.status === "booked" || reservation.status === "checked_in";
   const nights = Math.max(0, dayDiff(reservation.check_in, reservation.check_out));
   const totals = bookingTotals(form, room, nights);
   const balance = folioBalance(reservation, room, lines);
@@ -119,7 +138,9 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
 
   async function run(action: ReservationAction) {
     const ok = await onAction(action, reservation!.id);
-    if (ok) onClose();
+    if (!ok) return;
+    if (action === "checkin") onCheckedIn?.(reservation!);
+    close();
   }
 
   async function sendPreArrival() {
@@ -134,7 +155,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={close}
       className="max-h-[95vh] max-w-[1120px] overflow-hidden p-0"
     >
       <div className="flex max-h-[95vh] flex-col">
@@ -168,7 +189,10 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                     : `Room ${reservation.room_number}${room ? ` · ${typeLabel}` : ""}`}
                 </p>
               </div>
-              <ReservationStatusBadge status={reservation.status} />
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <ReservationStatusBadge status={reservation.status} />
+                <BookingSourceBadge source={reservation.booking_source} />
+              </div>
             </div>
 
             {tab === "details" && (
@@ -287,6 +311,10 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
               <FolioTab reservation={reservation} room={room} />
             )}
 
+            {tab === "keycard" && (
+              <KeyCardPanel reservation={reservation} room={room} />
+            )}
+
             {tab === "notes" && (
               <section className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
                 {reservation.notes && (
@@ -391,19 +419,58 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
-          {reservation.status === "booked" && (
-            <button
-              type="button"
-              onClick={() => void run("cancel")}
-              className="text-sm font-medium text-error-600 hover:text-error-700 dark:text-error-400"
-            >
-              Cancel booking
-            </button>
-          )}
+          {reservation.status === "booked" &&
+            (confirmCancel ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm text-gray-600 dark:text-gray-300">
+                  Cancel this booking and release the room?
+                </span>
+                <Button
+                  size="xs"
+                  variant="danger"
+                  onClick={() => void run("cancel")}
+                >
+                  Yes, cancel booking
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmCancel(false)}
+                  className="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                >
+                  Keep booking
+                </button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => setConfirmCancel(true)}
+              >
+                Cancel booking
+              </Button>
+            ))}
           <div className="ml-auto flex flex-wrap items-center gap-3">
-            <Button size="sm" variant="outline" onClick={onClose}>
+            <Button size="sm" variant="outline" onClick={close}>
               Close
             </Button>
+            {reservation.status === "checked_in" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setTab("keycard")}
+              >
+                Generate key
+              </Button>
+            )}
+            {onMoveRoom && isActiveStay && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onMoveRoom(reservation)}
+              >
+                Move room
+              </Button>
+            )}
             {reservation.status === "booked" && !isUnallocated && (
               <Button size="sm" onClick={() => void run("checkin")}>
                 Check in

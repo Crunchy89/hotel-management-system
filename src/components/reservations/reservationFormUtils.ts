@@ -1,4 +1,4 @@
-import { addDays, dayDiff, formatCurrency, todayISO } from "@/lib/metrics";
+import { addDays, formatCurrency, todayISO } from "@/lib/metrics";
 import type {
   CreateReservationInput,
   Guest,
@@ -10,7 +10,12 @@ import { PAYMENT_COLLECT_OPTIONS } from "@/lib/paymentStatus";
 
 export { PAYMENT_COLLECT_OPTIONS };
 
-export type ReservationTab = "details" | "guest" | "folio" | "notes";
+export type ReservationTab =
+  | "details"
+  | "guest"
+  | "folio"
+  | "keycard"
+  | "notes";
 
 export type ReservationFormValues = {
   guest_id: string;
@@ -51,6 +56,7 @@ export const TAX_RATE = 0.115;
 
 export const BOOKING_SOURCES = [
   "Direct",
+  "Offline",
   "Booking.com",
   "Expedia",
   "Agoda",

@@ -96,8 +96,8 @@ export default function DashboardPage() {
         description="Everything the front desk needs to start the day."
         action={
           <>
-            <Link href="/calendar">
-              <Button size="sm">Open calendar</Button>
+            <Link href="/reservations">
+              <Button size="sm">Open reservations</Button>
             </Link>
             <Button size="sm" variant="outline" onClick={() => void reload()}>
               Refresh

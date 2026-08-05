@@ -1,105 +1,122 @@
 "use client";
 
-import { FormEvent, Fragment, useMemo, useState } from "react";
-import { ReservationStatusBadge } from "@/components/StatusBadge";
-import AvailabilitySearch from "@/components/reservations/AvailabilitySearch";
+import { useMemo, useState } from "react";
+import TapeChart from "@/components/calendar/TapeChart";
+import RoomTypeDialog from "@/components/calendar/RoomTypeDialog";
+import AvailableRoomsModal from "@/components/reservations/AvailableRoomsModal";
+import FindBookingModal, {
+  type BookingQuery,
+} from "@/components/reservations/FindBookingModal";
+import KeyCardDialog from "@/components/reservations/KeyCardDialog";
+import MoveRoomDialog from "@/components/reservations/MoveRoomDialog";
 import ReservationDetailDialog, {
   type ReservationAction,
 } from "@/components/reservations/ReservationDetailDialog";
 import ReservationDialog, {
   defaultReservationForm,
 } from "@/components/reservations/ReservationDialog";
-import {
-  BOOKING_SOURCES,
-  formToCreateInput,
-} from "@/components/reservations/reservationFormUtils";
-import { PaymentStatusBadge } from "@/components/reservations/PaymentStatusBadge";
-import { resolvePaymentStatus } from "@/lib/paymentStatus";
+import { formToCreateInput } from "@/components/reservations/reservationFormUtils";
 import {
   defaultFilters,
-  exportReservationsCsv,
   filterReservations,
-  formatShortDate,
-  groupRowsByDate,
   type ReservationFilters,
 } from "@/components/reservations/reservationListUtils";
-import { Alert, inputClass, selectClass } from "@/components/form";
+import { Alert } from "@/components/form";
 import PageHeader from "@/components/common/PageHeader";
 import Button from "@/components/ui/button/Button";
-import {
-  FilterField,
-  FilterPanel,
-  PageShell,
-  SegmentTabs,
-  SurfaceCard,
-  tableBodyCell,
-  tableHeaderCell,
-} from "@/components/ui/layout";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { PageShell } from "@/components/ui/layout";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
-import { addDays, dayDiff, formatCurrency, todayISO } from "@/lib/metrics";
-import type { Reservation, Room } from "@/lib/types";
+import { addDays, dayDiff, formatDate, todayISO } from "@/lib/metrics";
+import type { Reservation, Room, RoomTypeRecord } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
 
-const STATUS_OPTIONS = [
-  { value: "all", label: "All" },
-  { value: "booked", label: "Confirmed" },
-  { value: "checked_in", label: "Check-in" },
-  { value: "checked_out", label: "Checked out" },
-  { value: "cancelled", label: "Cancelled" },
+type ViewMode = "7" | "14" | "month";
+
+const VIEW_MODES: { value: ViewMode; label: string }[] = [
+  { value: "7", label: "7d" },
+  { value: "14", label: "14d" },
+  { value: "month", label: "Month" },
 ];
 
-const DATE_TYPE_OPTIONS = [
-  { value: "check_in", label: "Check-in" },
-  { value: "check_out", label: "Check-out" },
-  { value: "booked", label: "Booked date" },
+const legend = [
+  { label: "Booked", className: "bg-brand-500" },
+  { label: "In house", className: "bg-success-500" },
+  { label: "Checked out", className: "bg-gray-300 dark:bg-gray-700" },
+  {
+    label: "Cancelled",
+    className: "border border-dashed border-gray-400 bg-gray-50",
+  },
 ];
 
-function Occupants({
-  adults,
-  childCount,
-  infants,
-}: {
-  adults: number;
-  childCount: number;
-  infants: number;
-}) {
-  return (
-    <div className="flex items-center gap-2 text-theme-xs text-gray-600 dark:text-gray-400">
-      <span title="Adults">👤 {adults}</span>
-      {childCount > 0 && <span title="Children">🧒 {childCount}</span>}
-      {infants > 0 && <span title="Infants">👶 {infants}</span>}
-    </div>
-  );
+function monthStart(iso: string): string {
+  return `${iso.slice(0, 7)}-01`;
+}
+
+function addMonths(iso: string, count: number): string {
+  const date = new Date(`${monthStart(iso)}T00:00:00Z`);
+  date.setUTCMonth(date.getUTCMonth() + count);
+  return date.toISOString().slice(0, 10);
+}
+
+function daysInMonth(iso: string): number {
+  return dayDiff(monthStart(iso), addMonths(iso, 1));
 }
 
 export default function ReservationsPage() {
-  const { reservations, guests, rooms, room_types, folio_lines, loading, error, mutate } =
+  const { reservations, guests, rooms, room_types, folio_lines, error, mutate } =
     useHotelData();
 
   const today = todayISO();
-  const [view, setView] = useState<"available" | "bookings">("available");
-  const [draftFilters, setDraftFilters] = useState<ReservationFilters>(() =>
-    defaultFilters(today),
-  );
-  const [appliedFilters, setAppliedFilters] = useState<ReservationFilters>(() =>
-    defaultFilters(today),
-  );
+
+  const [availSearch, setAvailSearch] = useState({
+    from: today,
+    to: addDays(today, 1),
+    roomType: "",
+  });
+
+  const emptyQuery: BookingQuery = { reference: "", lastName: "" };
+  const [query, setQuery] = useState<BookingQuery>(emptyQuery);
+  const [appliedQuery, setAppliedQuery] = useState<BookingQuery>(emptyQuery);
+  const [searched, setSearched] = useState(false);
+
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [start, setStart] = useState(() => monthStart(today));
+  const [showCancelled, setShowCancelled] = useState(false);
+
   const [selected, setSelected] = useState<Reservation | null>(null);
+  const [moveTarget, setMoveTarget] = useState<Reservation | null>(null);
+  const [keyTarget, setKeyTarget] = useState<Reservation | null>(null);
+  const [justBooked, setJustBooked] = useState<Reservation | null>(null);
   const [draft, setDraft] = useState<ReturnType<
     typeof defaultReservationForm
   > | null>(null);
   const [draftKey, setDraftKey] = useState(0);
+  const [editingRoomType, setEditingRoomType] = useState<RoomTypeRecord | null>(
+    null,
+  );
 
   const createModal = useModal();
   const detailModal = useModal();
+  const roomTypeModal = useModal();
+  const availableModal = useModal();
+  const findModal = useModal();
+  const moveModal = useModal();
+  const keyModal = useModal();
+
+  const days = viewMode === "month" ? daysInMonth(start) : Number(viewMode);
+
+  // A code or name lookup should reach every stay, so the date window is open.
+  const appliedFilters = useMemo<ReservationFilters>(
+    () => ({
+      ...defaultFilters(today),
+      dateFrom: "",
+      dateTo: "",
+      reference: appliedQuery.reference,
+      lastName: appliedQuery.lastName,
+    }),
+    [today, appliedQuery],
+  );
 
   const filteredRows = useMemo(
     () =>
@@ -113,61 +130,130 @@ export default function ReservationsPage() {
     [reservations, guests, rooms, appliedFilters, folio_lines],
   );
 
-  const grouped = useMemo(
-    () => groupRowsByDate(filteredRows),
+  const filteredReservations = useMemo(
+    () => filteredRows.map((row) => row.reservation),
     [filteredRows],
   );
 
-  function patchDraft(values: Partial<ReservationFilters>) {
-    setDraftFilters((prev) => ({ ...prev, ...values }));
+  // With no search applied, filteredRows holds every booking, so the first
+  // active one doubles as a sample result inside the find dialog.
+  const exampleRow = useMemo(
+    () =>
+      searched
+        ? undefined
+        : (filteredRows.find((row) => row.reservation.status === "booked") ??
+          filteredRows.find(
+            (row) => row.reservation.status === "checked_in",
+          ) ??
+          filteredRows[0]),
+    [searched, filteredRows],
+  );
+
+  function patchQuery(values: Partial<BookingQuery>) {
+    setQuery((prev) => ({ ...prev, ...values }));
   }
 
-  function onSearch(e: FormEvent) {
-    e.preventDefault();
-    setAppliedFilters({ ...draftFilters });
+  function patchAvail(values: Partial<typeof availSearch>) {
+    setAvailSearch((prev) => {
+      const next = { ...prev, ...values };
+      if (values.from && next.to <= values.from) {
+        next.to = addDays(values.from, 1);
+      }
+      return next;
+    });
   }
 
-  function openCreate() {
-    const fallbackRoom =
-      rooms.find((r) => r.status === "available") ?? rooms[0];
-    setDraft(
-      defaultReservationForm({
-        guest_id: guests[0]?.id ?? "",
-        guest_mode: guests[0] ? "existing" : "new",
-        room_id: fallbackRoom?.id ?? "",
-        room_type: fallbackRoom?.type ?? "",
-        check_in: today,
-        check_out: addDays(today, 1),
-      }),
-    );
+  function findBooking() {
+    setAppliedQuery({ ...query });
+    setSearched(true);
+  }
+
+  function resetBookingSearch() {
+    setQuery(emptyQuery);
+    setAppliedQuery(emptyQuery);
+    setSearched(false);
+  }
+
+  function openDraft(
+    values: Partial<ReturnType<typeof defaultReservationForm>>,
+  ) {
+    setDraft(defaultReservationForm(values));
     setDraftKey((k) => k + 1);
     createModal.openModal();
   }
 
   function openReserve(room: Room, checkIn: string, checkOut: string) {
     const nights = Math.max(0, dayDiff(checkIn, checkOut));
-    setDraft(
-      defaultReservationForm({
-        guest_id: guests[0]?.id ?? "",
-        guest_mode: guests[0] ? "existing" : "new",
-        room_id: room.id,
-        room_type: room.type,
-        check_in: checkIn,
-        check_out: checkOut,
-        room_amount: room.rate * nights,
-      }),
-    );
-    setDraftKey((k) => k + 1);
-    createModal.openModal();
+    availableModal.closeModal();
+    openDraft({
+      guest_id: guests[0]?.id ?? "",
+      guest_mode: guests[0] ? "existing" : "new",
+      room_id: room.id,
+      room_type: room.type,
+      check_in: checkIn,
+      check_out: checkOut,
+      room_amount: room.rate * nights,
+      hold_rate: false,
+      booking_source: "Offline",
+    });
+  }
+
+  function handleCellSelect(room: Room, date: string) {
+    openDraft({
+      guest_id: guests[0]?.id ?? "",
+      guest_mode: guests[0] ? "existing" : "new",
+      room_id: room.id,
+      room_type: room.type,
+      check_in: date,
+      check_out: addDays(date, 1),
+      room_amount: room.rate,
+      booking_source: "Offline",
+    });
+  }
+
+  function handleUnallocatedCellSelect(typeSlug: string, date: string) {
+    openDraft({
+      guest_id: guests[0]?.id ?? "",
+      guest_mode: guests[0] ? "existing" : "new",
+      room_id: "",
+      room_type: typeSlug,
+      check_in: date,
+      check_out: addDays(date, 1),
+      booking_source: "Offline",
+    });
   }
 
   function openReservation(reservation: Reservation) {
+    findModal.closeModal();
     setSelected(reservation);
     detailModal.openModal();
   }
 
-  const onCreate = (values: ReturnType<typeof defaultReservationForm>) =>
-    mutate(() => api.createReservation(formToCreateInput(values)));
+  function openMoveRoom(reservation: Reservation) {
+    detailModal.closeModal();
+    setMoveTarget(reservation);
+    moveModal.openModal();
+  }
+
+  function openKeyCard(reservation: Reservation) {
+    setKeyTarget(reservation);
+    keyModal.openModal();
+  }
+
+  function handleCheckedIn(reservation: Reservation) {
+    detailModal.closeModal();
+    openKeyCard(reservation);
+  }
+
+  const onCreate = async (values: ReturnType<typeof defaultReservationForm>) => {
+    let created: Reservation | null = null;
+    const ok = await mutate(async () => {
+      created = await api.createReservation(formToCreateInput(values));
+      return created;
+    });
+    if (ok) setJustBooked(created);
+    return ok;
+  };
 
   const onAction = (action: ReservationAction, id: string) =>
     mutate(() => {
@@ -176,320 +262,220 @@ export default function ReservationsPage() {
       return api.cancelReservation(id);
     });
 
+  const onSaveRoomType = (values: { label: string }) =>
+    mutate(() =>
+      editingRoomType
+        ? api.updateRoomType({ id: editingRoomType.id, label: values.label })
+        : api.createRoomType(values),
+    );
+
+  const onDeleteRoomType = () =>
+    editingRoomType
+      ? mutate(() => api.deleteRoomType(editingRoomType.id))
+      : Promise.resolve(false);
+
+  function stepBack() {
+    setStart(viewMode === "month" ? addMonths(start, -1) : addDays(start, -days));
+  }
+
+  function stepForward() {
+    setStart(viewMode === "month" ? addMonths(start, 1) : addDays(start, days));
+  }
+
+  function goToday() {
+    setStart(viewMode === "month" ? monthStart(today) : addDays(today, -2));
+  }
+
+  function changeView(mode: ViewMode) {
+    setViewMode(mode);
+    setStart(mode === "month" ? monthStart(start) : addDays(today, -2));
+  }
+
+  const rangeLabel =
+    viewMode === "month"
+      ? formatDate(start, { month: "long", year: "numeric" })
+      : `${formatDate(start)} – ${formatDate(addDays(start, days - 1))}`;
+
+  const searchSummary = [
+    appliedQuery.reference && `code “${appliedQuery.reference}”`,
+    appliedQuery.lastName && `name “${appliedQuery.lastName}”`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  // Keep the selected booking in sync after a move or status change.
+  const selectedLive = selected
+    ? (reservations.find((r) => r.id === selected.id) ?? selected)
+    : null;
+
   return (
     <PageShell>
       <PageHeader
         title="Reservations"
-        description="Find open rooms for tonight, or search existing bookings."
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <SegmentTabs
-              tabs={[
-                { id: "available" as const, label: "Available rooms" },
-                { id: "bookings" as const, label: "Bookings" },
-              ]}
-              value={view}
-              onChange={setView}
-            />
-            <Button size="sm" onClick={openCreate}>
-              + Create reservation
-            </Button>
-          </div>
-        }
+        description="Search open rooms, book offline, and manage every stay on the calendar."
       />
 
       {error && <Alert>{error}</Alert>}
 
-      {view === "available" ? (
-        <AvailabilitySearch
-          rooms={rooms}
-          reservations={reservations}
-          roomTypes={room_types}
-          loading={loading}
-          onReserve={openReserve}
-        />
-      ) : (
-        <>
-          <FilterPanel
-            onSubmit={onSearch}
-            action={
-              <Button size="sm" type="submit">
-                Search
-              </Button>
-            }
-          >
-            <FilterField label="Guest last name">
-              <input
-                className={inputClass}
-                placeholder="e.g. Davis"
-                value={draftFilters.lastName}
-                onChange={(e) => patchDraft({ lastName: e.target.value })}
-              />
-            </FilterField>
-            <FilterField label="Booking reference">
-              <input
-                className={inputClass}
-                placeholder="Reference code"
-                value={draftFilters.reference}
-                onChange={(e) => patchDraft({ reference: e.target.value })}
-              />
-            </FilterField>
-            <FilterField label="Invoice number">
-              <input
-                className={inputClass}
-                placeholder="Invoice or ID"
-                value={draftFilters.invoice}
-                onChange={(e) => patchDraft({ invoice: e.target.value })}
-              />
-            </FilterField>
-            <FilterField label="Date type">
-              <select
-                className={selectClass}
-                value={draftFilters.dateType}
-                onChange={(e) =>
-                  patchDraft({
-                    dateType: e.target.value as ReservationFilters["dateType"],
-                  })
-                }
-              >
-                {DATE_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
-
-            <FilterField label="Status">
-              <select
-                className={selectClass}
-                value={draftFilters.status}
-                onChange={(e) => patchDraft({ status: e.target.value })}
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
-            <FilterField label="Date from">
-              <input
-                className={inputClass}
-                type="date"
-                value={draftFilters.dateFrom}
-                onChange={(e) => patchDraft({ dateFrom: e.target.value })}
-              />
-            </FilterField>
-            <FilterField label="Date to">
-              <input
-                className={inputClass}
-                type="date"
-                value={draftFilters.dateTo}
-                onChange={(e) => patchDraft({ dateTo: e.target.value })}
-              />
-            </FilterField>
-            <FilterField label="Source">
-              <select
-                className={selectClass}
-                value={draftFilters.source}
-                onChange={(e) => patchDraft({ source: e.target.value })}
-              >
-                <option value="all">All</option>
-                {BOOKING_SOURCES.map((source) => (
-                  <option key={source} value={source}>
-                    {source}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
-          </FilterPanel>
-
-          <SurfaceCard className="overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6">
-              <p className="text-theme-sm font-semibold text-gray-800 dark:text-white/90">
-                <span className="text-brand-600 dark:text-brand-400">
-                  {filteredRows.length}
-                </span>{" "}
-                reservation{filteredRows.length === 1 ? "" : "s"} found
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => exportReservationsCsv(filteredRows)}
-                  disabled={filteredRows.length === 0}
-                >
-                  Export CSV
-                </Button>
-              </div>
-            </div>
-
-            <div className="custom-scrollbar overflow-x-auto">
-              <Table>
-                <TableHeader className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
-                  <TableRow>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Status
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Name
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Reference
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Source
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Occupants
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Check-in
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Check-out
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Booked
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      ETA
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Room
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Total
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Amount due
-                    </TableCell>
-                    <TableCell isHeader className={tableHeaderCell}>
-                      Payment status
-                    </TableCell>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRows.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={13}
-                        className="px-5 py-10 text-center text-theme-sm text-gray-500 dark:text-gray-400"
-                      >
-                        {loading
-                          ? "Loading…"
-                          : "No reservations match your search criteria."}
-                      </TableCell>
-                    </TableRow>
-                  )}
-
-                  {grouped.map((group) => (
-                    <Fragment key={group.date}>
-                      <TableRow className="bg-brand-50/70 dark:bg-brand-500/10">
-                        <TableCell
-                          colSpan={13}
-                          className="px-3 py-2 text-theme-xs font-semibold text-brand-700 dark:text-brand-300"
-                        >
-                          {group.label}
-                        </TableCell>
-                      </TableRow>
-                      {group.rows.map(
-                        ({
-                          reservation: r,
-                          displayName,
-                          displayReference,
-                          total,
-                          amountDue,
-                        }) => (
-                          <TableRow
-                            key={r.id}
-                            className="border-b border-gray-100 hover:bg-gray-50/80 dark:border-gray-800 dark:hover:bg-white/[0.02]"
-                          >
-                            <TableCell className={tableBodyCell}>
-                              <ReservationStatusBadge status={r.status} />
-                            </TableCell>
-                            <TableCell className={tableBodyCell}>
-                              <button
-                                type="button"
-                                onClick={() => openReservation(r)}
-                                className="font-medium text-gray-800 hover:text-brand-500 dark:text-white/90"
-                              >
-                                {displayName}
-                              </button>
-                            </TableCell>
-                            <TableCell className={tableBodyCell}>
-                              <button
-                                type="button"
-                                onClick={() => openReservation(r)}
-                                className="font-medium text-brand-600 hover:underline dark:text-brand-400"
-                              >
-                                {displayReference}
-                              </button>
-                            </TableCell>
-                            <TableCell className={tableBodyCell}>
-                              {r.booking_source ?? "Direct"}
-                            </TableCell>
-                            <TableCell className={tableBodyCell}>
-                              <Occupants
-                                adults={r.adults ?? 1}
-                                childCount={r.children ?? 0}
-                                infants={r.infants ?? 0}
-                              />
-                            </TableCell>
-                            <TableCell
-                              className={`${tableBodyCell} tabular-nums`}
-                            >
-                              {formatShortDate(r.check_in)}
-                            </TableCell>
-                            <TableCell
-                              className={`${tableBodyCell} tabular-nums`}
-                            >
-                              {formatShortDate(r.check_out)}
-                            </TableCell>
-                            <TableCell
-                              className={`${tableBodyCell} tabular-nums`}
-                            >
-                              {formatShortDate(r.created_at.slice(0, 10))}
-                            </TableCell>
-                            <TableCell
-                              className={`${tableBodyCell} tabular-nums`}
-                            >
-                              {r.arrival_time || "—"}
-                            </TableCell>
-                            <TableCell className={tableBodyCell}>
-                              {r.room_number ?? "—"}
-                            </TableCell>
-                            <TableCell
-                              className={`${tableBodyCell} tabular-nums`}
-                            >
-                              {formatCurrency(total)}
-                            </TableCell>
-                            <TableCell
-                              className={`${tableBodyCell} tabular-nums font-semibold text-error-600 dark:text-error-400`}
-                            >
-                              {formatCurrency(amountDue)}
-                            </TableCell>
-                            <TableCell className={tableBodyCell}>
-                              <PaymentStatusBadge
-                                status={resolvePaymentStatus(
-                                  r,
-                                  rooms.find((room) => room.id === r.room_id),
-                                  folio_lines,
-                                )}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ),
-                      )}
-                    </Fragment>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </SurfaceCard>
-        </>
+      {justBooked && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-success-200 bg-success-50 px-5 py-4 dark:border-success-500/30 dark:bg-success-500/10">
+          <p className="text-theme-sm text-success-700 dark:text-success-400">
+            Booking confirmed for {justBooked.guest_name}
+            {justBooked.reference ? ` · ${justBooked.reference}` : ""}.
+          </p>
+          <div className="flex items-center gap-3">
+            <span className="text-theme-xs text-success-700/80 dark:text-success-400/80">
+              The room key is encoded at check-in.
+            </span>
+            <button
+              type="button"
+              onClick={() => setJustBooked(null)}
+              className="text-theme-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button size="sm" onClick={availableModal.openModal}>
+          Find available rooms
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setQuery(appliedQuery);
+            findModal.openModal();
+          }}
+        >
+          Find a booking
+        </Button>
+
+        {searched && (
+          <span className="flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1.5 text-theme-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+            Filtered by {searchSummary || "custom filters"}
+            <button
+              type="button"
+              onClick={resetBookingSearch}
+              aria-label="Clear booking filter"
+              className="text-brand-500 hover:text-brand-700 dark:hover:text-brand-300"
+            >
+              ✕
+            </button>
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="xs" variant="outline" onClick={stepBack}>
+            ‹ Prev
+          </Button>
+          <Button size="xs" variant="outline" onClick={goToday}>
+            Today
+          </Button>
+          <Button size="xs" variant="outline" onClick={stepForward}>
+            Next ›
+          </Button>
+          <span className="ml-1 text-theme-sm font-medium text-gray-700 dark:text-gray-300">
+            {rangeLabel}
+          </span>
+          {searched && (
+            <span className="text-theme-sm text-gray-500 dark:text-gray-400">
+              · {filteredReservations.length} match
+              {filteredReservations.length === 1 ? "" : "es"}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
+            <input
+              type="checkbox"
+              checked={showCancelled}
+              onChange={(e) => setShowCancelled(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900"
+            />
+            Show cancelled
+          </label>
+          <div className="hidden items-center gap-3 sm:flex">
+            {legend.map((item) => (
+              <span
+                key={item.label}
+                className="flex items-center gap-1.5 text-theme-xs text-gray-500 dark:text-gray-400"
+              >
+                <span className={`h-2.5 w-2.5 rounded-full ${item.className}`} />
+                {item.label}
+              </span>
+            ))}
+          </div>
+          <div className="flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900">
+            {VIEW_MODES.map((mode) => (
+              <button
+                key={mode.value}
+                type="button"
+                onClick={() => changeView(mode.value)}
+                className={`rounded-md px-3 py-1.5 text-theme-xs font-medium transition ${
+                  viewMode === mode.value
+                    ? "bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white"
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <TapeChart
+        rooms={rooms}
+        roomTypes={room_types}
+        reservations={filteredReservations}
+        availabilityReservations={reservations}
+        start={start}
+        days={days}
+        showCancelled={showCancelled}
+        onSelectReservation={openReservation}
+        onSelectCell={handleCellSelect}
+        onSelectUnallocatedCell={handleUnallocatedCellSelect}
+        onAddRoomType={() => {
+          setEditingRoomType(null);
+          roomTypeModal.openModal();
+        }}
+        onEditRoomType={(type) => {
+          setEditingRoomType(type);
+          roomTypeModal.openModal();
+        }}
+      />
+
+      <AvailableRoomsModal
+        isOpen={availableModal.isOpen}
+        onClose={availableModal.closeModal}
+        rooms={rooms}
+        reservations={reservations}
+        roomTypes={room_types}
+        checkIn={availSearch.from}
+        checkOut={availSearch.to}
+        roomType={availSearch.roomType}
+        onChange={patchAvail}
+        onReserve={openReserve}
+      />
+
+      <FindBookingModal
+        isOpen={findModal.isOpen}
+        onClose={findModal.closeModal}
+        query={query}
+        onChange={patchQuery}
+        onSearch={findBooking}
+        onReset={resetBookingSearch}
+        rows={filteredRows}
+        searched={searched}
+        exampleRow={exampleRow}
+        onSelect={openReservation}
+      />
 
       {draft && (
         <ReservationDialog
@@ -507,11 +493,41 @@ export default function ReservationsPage() {
       <ReservationDetailDialog
         isOpen={detailModal.isOpen}
         onClose={detailModal.closeModal}
-        reservation={selected}
-        guest={guests.find((g) => g.id === selected?.guest_id) ?? null}
+        reservation={selectedLive}
+        guest={guests.find((g) => g.id === selectedLive?.guest_id) ?? null}
         rooms={rooms}
         roomTypes={room_types}
         onAction={onAction}
+        onMoveRoom={openMoveRoom}
+        onCheckedIn={handleCheckedIn}
+      />
+
+      <MoveRoomDialog
+        isOpen={moveModal.isOpen}
+        onClose={moveModal.closeModal}
+        reservation={moveTarget}
+        rooms={rooms}
+        roomTypes={room_types}
+        reservations={reservations}
+      />
+
+      <KeyCardDialog
+        isOpen={keyModal.isOpen}
+        onClose={keyModal.closeModal}
+        reservation={
+          keyTarget
+            ? (reservations.find((r) => r.id === keyTarget.id) ?? keyTarget)
+            : null
+        }
+        rooms={rooms}
+      />
+
+      <RoomTypeDialog
+        isOpen={roomTypeModal.isOpen}
+        onClose={roomTypeModal.closeModal}
+        editing={editingRoomType}
+        onSave={onSaveRoomType}
+        onDelete={editingRoomType ? onDeleteRoomType : undefined}
       />
     </PageShell>
   );

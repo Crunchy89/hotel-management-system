@@ -15,7 +15,6 @@ export const TOP_NAV_ITEMS: NavItem[] = [
   { name: "Reservations", path: "/reservations" },
   { name: "Manage Room", path: "/rooms" },
   { name: "Rooms & Prices", path: "/rates" },
-  { name: "Calendar", path: "/calendar" },
   { name: "Guests", path: "/guests" },
   { name: "Guest messages", path: "/messages" },
   { name: "Client chat", path: "/chat" },
@@ -44,9 +43,8 @@ export const NAV_SECTIONS: NavSection[] = [
 
 export const ROUTE_LABELS: Record<string, string> = {
   "/": "Dashboard",
-  "/calendar": "Calendar",
-  "/check-in": "Check-In",
   "/reservations": "Reservations",
+  "/calendar": "Reservations",
   "/rooms": "Manage Room",
   "/housekeeping": "Housekeeping",
   "/rates": "Rooms & Prices",
@@ -90,10 +88,11 @@ export function routeLabel(pathname: string): string {
 export function routeSection(pathname: string): string {
   if (pathname === "/") return "Dashboard";
   if (pathname.startsWith("/insights")) return "Insights";
-  if (pathname.startsWith("/reservations")) return "Reservations";
+  if (pathname.startsWith("/reservations") || pathname.startsWith("/calendar")) {
+    return "Reservations";
+  }
   if (pathname.startsWith("/rooms")) return "Manage Room";
   if (pathname.startsWith("/rates")) return "Rooms & Prices";
-  if (pathname.startsWith("/calendar")) return "Calendar";
   if (pathname.startsWith("/guests")) return "Guests";
   if (pathname.startsWith("/messages")) return "Guest messages";
   if (pathname.startsWith("/chat")) return "Client chat";

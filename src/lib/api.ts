@@ -32,6 +32,9 @@ import type {
   UpdateReservationPaymentInput,
   YieldRule,
   BookingActivity,
+  KeyCard,
+  MoveReservationRoomInput,
+  WriteKeyCardInput,
 } from "@/lib/types";
 
 function asPromise<T>(fn: () => T): Promise<T> {
@@ -76,6 +79,15 @@ export const api = {
     asPromise(() => store.updateReservationPayment(input)),
   checkIn: (id: string): Promise<Reservation> => asPromise(() => store.checkIn(id)),
   checkOut: (id: string): Promise<Reservation> => asPromise(() => store.checkOut(id)),
+  moveReservationRoom: (
+    input: MoveReservationRoomInput,
+  ): Promise<Reservation> => asPromise(() => store.moveReservationRoom(input)),
+  listKeyCards: (reservationId?: string): Promise<KeyCard[]> =>
+    asPromise(() => store.listKeyCards(reservationId)),
+  writeKeyCard: (input: WriteKeyCardInput): Promise<KeyCard> =>
+    asPromise(() => store.writeKeyCard(input)),
+  revokeKeyCard: (id: string): Promise<KeyCard> =>
+    asPromise(() => store.revokeKeyCard(id)),
   listFolioLines: (reservationId?: string): Promise<FolioLine[]> =>
     asPromise(() => store.listFolioLines(reservationId)),
   createFolioLine: (input: CreateFolioLineInput): Promise<FolioLine> =>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useId, useRef } from "react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -10,6 +10,9 @@ interface ModalProps {
   showCloseButton?: boolean;
 }
 
+/** Open modals, oldest first, so stacked dialogs know which one is on top. */
+let openStack: string[] = [];
+
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -17,21 +20,33 @@ export const Modal: React.FC<ModalProps> = ({
   className = "",
   showCloseButton = true,
 }) => {
+  const id = useId();
+  const onCloseRef = useRef(onClose);
+
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    openStack.push(id);
+    document.body.style.overflow = "hidden";
+
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      // Only the topmost dialog reacts, so Escape peels one layer at a time.
+      if (event.key === "Escape" && openStack.at(-1) === id) {
+        onCloseRef.current();
+      }
     };
+    document.addEventListener("keydown", handleEscape);
 
-    if (isOpen) document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [isOpen, onClose]);
-
-  useEffect(() => {
-    document.body.style.overflow = isOpen ? "hidden" : "unset";
     return () => {
-      document.body.style.overflow = "unset";
+      document.removeEventListener("keydown", handleEscape);
+      openStack = openStack.filter((entry) => entry !== id);
+      if (openStack.length === 0) document.body.style.overflow = "unset";
     };
-  }, [isOpen]);
+  }, [isOpen, id]);
 
   if (!isOpen) return null;
 

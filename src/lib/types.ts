@@ -360,7 +360,10 @@ export type BookingActivityKind =
   | "payment_received"
   | "booking_cancelled"
   | "check_in"
-  | "check_out";
+  | "check_out"
+  | "room_moved"
+  | "key_written"
+  | "key_revoked";
 
 export interface BookingActivity {
   id: string;
@@ -372,4 +375,31 @@ export interface BookingActivity {
   amount?: number;
   description: string;
   created_at: string;
+}
+
+export type KeyCardStatus = "not_written" | "active" | "revoked";
+
+export interface KeyCard {
+  id: string;
+  reservation_id: string;
+  room_id: string;
+  /** Encoded on the physical card by the mock encoder. */
+  code: string;
+  /** Scanned by the guest at self check-in. */
+  qr_payload: string;
+  status: KeyCardStatus;
+  write_count: number;
+  written_at?: string;
+  revoked_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WriteKeyCardInput {
+  reservation_id: string;
+}
+
+export interface MoveReservationRoomInput {
+  id: string;
+  room_id: string;
 }

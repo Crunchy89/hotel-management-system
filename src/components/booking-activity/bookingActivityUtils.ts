@@ -19,6 +19,9 @@ export const ACTIVITY_KIND_OPTIONS: Array<{
   { value: "booking_cancelled", label: "Booking cancelled" },
   { value: "check_in", label: "Check-in" },
   { value: "check_out", label: "Check-out" },
+  { value: "room_moved", label: "Room move" },
+  { value: "key_written", label: "Key encoded" },
+  { value: "key_revoked", label: "Key revoked" },
 ];
 
 export const ACTIVITY_KIND_LABELS: Record<BookingActivityKind, string> = {
@@ -27,6 +30,9 @@ export const ACTIVITY_KIND_LABELS: Record<BookingActivityKind, string> = {
   booking_cancelled: "Cancelled",
   check_in: "Check-in",
   check_out: "Check-out",
+  room_moved: "Room move",
+  key_written: "Key encoded",
+  key_revoked: "Key revoked",
 };
 
 export function defaultActivityFilters(today: string): ActivityFilters {

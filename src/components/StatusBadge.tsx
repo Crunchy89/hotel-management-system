@@ -33,3 +33,23 @@ export function ReservationStatusBadge({ status }: { status: string }) {
     </Badge>
   );
 }
+
+const sourceColors: Record<string, BadgeColor> = {
+  direct: "primary",
+  "direct booking": "primary",
+  offline: "dark",
+  "walk-in": "dark",
+  phone: "dark",
+  "booking.com": "info",
+  expedia: "warning",
+  agoda: "success",
+};
+
+export function BookingSourceBadge({ source }: { source?: string }) {
+  const value = source?.trim() || "Direct";
+  return (
+    <Badge size="sm" color={sourceColors[value.toLowerCase()] ?? "light"}>
+      {value}
+    </Badge>
+  );
+}
