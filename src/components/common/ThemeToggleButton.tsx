@@ -1,17 +1,19 @@
 "use client";
 
 import React from "react";
+import { useT } from "@/context/LocaleContext";
 import { useTheme } from "@/context/ThemeContext";
 
 export const ThemeToggleButton: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
+  const t = useT();
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-      title={theme === "dark" ? "Light mode" : "Dark mode"}
+      aria-label={theme === "dark" ? t("theme.toLight") : t("theme.toDark")}
+      title={theme === "dark" ? t("theme.light") : t("theme.dark")}
       className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
     >
       {theme === "dark" ? (

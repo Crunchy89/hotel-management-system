@@ -81,6 +81,20 @@ export function availableRoomsForDates(
   });
 }
 
+/** True when the room type can sleep this party size. */
+export function roomTypeFitsParty(
+  type: { max_adults: number; max_children: number; max_infants: number },
+  adults: number,
+  children: number,
+  infants: number,
+): boolean {
+  return (
+    adults <= type.max_adults &&
+    children <= type.max_children &&
+    infants <= type.max_infants
+  );
+}
+
 export function formatDate(iso: string, opts?: Intl.DateTimeFormatOptions) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(
     undefined,
@@ -89,9 +103,9 @@ export function formatDate(iso: string, opts?: Intl.DateTimeFormatOptions) {
 }
 
 export function formatCurrency(value: number): string {
-  return value.toLocaleString(undefined, {
+  return value.toLocaleString("id-ID", {
     style: "currency",
-    currency: "USD",
+    currency: "IDR",
     maximumFractionDigits: 0,
   });
 }

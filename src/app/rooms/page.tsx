@@ -6,7 +6,7 @@ import RoomTypeDialog, {
 } from "@/components/calendar/RoomTypeDialog";
 import ComponentCard from "@/components/common/ComponentCard";
 import PageHeader from "@/components/common/PageHeader";
-import { amenitySummary } from "@/components/rooms/roomTypeAmenities";
+import { amenitySummaryLocalized } from "@/components/rooms/roomTypeAmenities";
 import { RoomStatusBadge } from "@/components/StatusBadge";
 import { Alert, Field, inputClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
@@ -23,8 +23,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useT } from "@/context/LocaleContext";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
+import { formatCurrency } from "@/lib/metrics";
 import type { Room, RoomTypeRecord } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
 
@@ -33,10 +35,11 @@ const emptyForm = {
   type: "standard",
   floor: 1,
   status: "available",
-  rate: 100,
+  rate: 1_000_000,
 };
 
 export default function RoomsPage() {
+  const t = useT();
   const { rooms, room_types, loading, error, mutate } = useHotelData();
   const [editing, setEditing] = useState<Room | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -113,25 +116,28 @@ export default function RoomsPage() {
       : Promise.resolve(false);
 
   const typeRecord = (slug: string) =>
-    room_types.find((t) => t.slug === slug) ?? null;
+    room_types.find((rt) => rt.slug === slug) ?? null;
 
   const typeLabel = (slug: string) => typeRecord(slug)?.label ?? slug;
 
   const roomsForType = (slug: string) =>
     rooms.filter((r) => r.type === slug).length;
 
+  const inventoryDescKey =
+    rooms.length === 1 ? "rooms.inventoryDesc" : "rooms.inventoryDesc_other";
+
   return (
     <PageShell>
       <PageHeader
-        title="Manage Room"
-        description="Inventory, rates, and housekeeping status."
+        title={t("rooms.title")}
+        description={t("rooms.description")}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={openCreateRoomType}>
-              Add room type
+              {t("rooms.addRoomType")}
             </Button>
             <Button size="sm" onClick={openCreate}>
-              Add room
+              {t("rooms.addRoom")}
             </Button>
           </div>
         }
@@ -140,24 +146,27 @@ export default function RoomsPage() {
       {error && <Alert>{error}</Alert>}
 
       <ComponentCard
-        title="Room types"
-        desc="Bed size and amenities are shared by every room of the type."
+        title={t("rooms.typesTitle")}
+        desc={t("rooms.typesDesc")}
       >
         <div className="custom-scrollbar overflow-x-auto">
           <Table>
             <TableHeader className="border-b border-gray-100 dark:border-gray-800">
               <TableRow>
                 <TableCell isHeader className={tableHeaderCell}>
-                  Type
+                  {t("common.type")}
                 </TableCell>
                 <TableCell isHeader className={tableHeaderCell}>
-                  Bed & amenities
+                  {t("rooms.bedAmenities")}
                 </TableCell>
                 <TableCell isHeader className={tableHeaderCell}>
-                  Rooms
+                  {t("available.capacity")}
                 </TableCell>
                 <TableCell isHeader className={tableHeaderCell}>
-                  Actions
+                  {t("common.rooms")}
+                </TableCell>
+                <TableCell isHeader className={tableHeaderCell}>
+                  {t("common.actions")}
                 </TableCell>
               </TableRow>
             </TableHeader>
@@ -165,10 +174,10 @@ export default function RoomsPage() {
               {room_types.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={5}
                     className="px-5 py-8 text-center text-theme-sm text-gray-500 dark:text-gray-400"
                   >
-                    {loading ? "Loading…" : "No room types yet."}
+                    {loading ? t("common.loading") : t("rooms.noTypes")}
                   </TableCell>
                 </TableRow>
               )}
@@ -181,7 +190,16 @@ export default function RoomsPage() {
                   </TableCell>
                   <TableCell className={tableBodyCell}>
                     <span className="text-theme-sm text-gray-600 dark:text-gray-400">
-                      {amenitySummary(type)}
+                      {amenitySummaryLocalized(type, t)}
+                    </span>
+                  </TableCell>
+                  <TableCell className={tableBodyCell}>
+                    <span className="text-theme-sm text-gray-600 dark:text-gray-400">
+                      {t("available.capacityHint", {
+                        adults: type.max_adults,
+                        children: type.max_children,
+                        infants: type.max_infants,
+                      })}
                     </span>
                   </TableCell>
                   <TableCell className={`${tableBodyCell} tabular-nums`}>
@@ -193,7 +211,7 @@ export default function RoomsPage() {
                       variant="outline"
                       onClick={() => openEditRoomType(type)}
                     >
-                      Edit
+                      {t("common.edit")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -204,30 +222,30 @@ export default function RoomsPage() {
       </ComponentCard>
 
       <ComponentCard
-        title="Room inventory"
-        desc={`${rooms.length} room${rooms.length === 1 ? "" : "s"} configured`}
+        title={t("rooms.inventoryTitle")}
+        desc={t(inventoryDescKey, { count: rooms.length })}
       >
         <div className="custom-scrollbar overflow-x-auto">
           <Table>
             <TableHeader className="border-b border-gray-100 dark:border-gray-800">
               <TableRow>
                 <TableCell isHeader className={tableHeaderCell}>
-                  Number
+                  {t("common.number")}
                 </TableCell>
                 <TableCell isHeader className={tableHeaderCell}>
-                  Type
+                  {t("common.type")}
                 </TableCell>
                 <TableCell isHeader className={tableHeaderCell}>
-                  Floor
+                  {t("common.floor")}
                 </TableCell>
                 <TableCell isHeader className={tableHeaderCell}>
-                  Rate
+                  {t("common.rate")}
                 </TableCell>
                 <TableCell isHeader className={tableHeaderCell}>
-                  Status
+                  {t("common.status")}
                 </TableCell>
                 <TableCell isHeader className={tableHeaderCell}>
-                  Actions
+                  {t("common.actions")}
                 </TableCell>
               </TableRow>
             </TableHeader>
@@ -238,7 +256,7 @@ export default function RoomsPage() {
                     colSpan={6}
                     className="px-5 py-8 text-center text-theme-sm text-gray-500 dark:text-gray-400"
                   >
-                    {loading ? "Loading…" : "No rooms yet."}
+                    {loading ? t("common.loading") : t("rooms.noRooms")}
                   </TableCell>
                 </TableRow>
               )}
@@ -256,7 +274,7 @@ export default function RoomsPage() {
                         <span>{typeLabel(room.type)}</span>
                         {type && (
                           <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-                            {amenitySummary(type)}
+                            {amenitySummaryLocalized(type, t)}
                           </span>
                         )}
                       </div>
@@ -265,7 +283,7 @@ export default function RoomsPage() {
                       {room.floor}
                     </TableCell>
                     <TableCell className={`${tableBodyCell} tabular-nums`}>
-                      ${room.rate.toFixed(2)}
+                      {formatCurrency(room.rate)}
                     </TableCell>
                     <TableCell className={tableBodyCell}>
                       <RoomStatusBadge status={room.status} />
@@ -277,7 +295,7 @@ export default function RoomsPage() {
                           variant="outline"
                           onClick={() => openEdit(room)}
                         >
-                          Edit
+                          {t("common.edit")}
                         </Button>
                         {room.status === "cleaning" && (
                           <Button
@@ -285,7 +303,7 @@ export default function RoomsPage() {
                             variant="outline"
                             onClick={() => void setStatus(room.id, "available")}
                           >
-                            Mark available
+                            {t("rooms.markAvailable")}
                           </Button>
                         )}
                         {room.status === "available" && (
@@ -296,7 +314,7 @@ export default function RoomsPage() {
                               void setStatus(room.id, "maintenance")
                             }
                           >
-                            Maintenance
+                            {t("rooms.maintenance")}
                           </Button>
                         )}
                         {room.status === "maintenance" && (
@@ -305,7 +323,7 @@ export default function RoomsPage() {
                             variant="outline"
                             onClick={() => void setStatus(room.id, "available")}
                           >
-                            Clear maintenance
+                            {t("rooms.clearMaintenance")}
                           </Button>
                         )}
                       </div>
@@ -324,16 +342,15 @@ export default function RoomsPage() {
         className="max-w-[600px] p-6 lg:p-8"
       >
         <h4 className="mb-1 text-theme-xl font-semibold text-gray-800 dark:text-white/90">
-          {editing ? "Edit room" : "Add room"}
+          {editing ? t("rooms.editRoom") : t("rooms.addRoomTitle")}
         </h4>
         <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-          Configure the room number, type, rate, and housekeeping status. Bed
-          and amenities come from the room type.
+          {t("rooms.roomFormHint")}
         </p>
 
         <form onSubmit={onSubmit}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Room number">
+            <Field label={t("rooms.roomNumber")}>
               <input
                 className={inputClass}
                 required
@@ -341,7 +358,7 @@ export default function RoomsPage() {
                 onChange={(e) => setForm({ ...form, number: e.target.value })}
               />
             </Field>
-            <Field label="Type">
+            <Field label={t("common.type")}>
               <select
                 className={inputClass}
                 value={form.type}
@@ -356,10 +373,12 @@ export default function RoomsPage() {
             </Field>
             {typeRecord(form.type) && (
               <p className="sm:col-span-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                Inherits: {amenitySummary(typeRecord(form.type)!)}
+                {t("rooms.inherits", {
+                  summary: amenitySummaryLocalized(typeRecord(form.type)!, t),
+                })}
               </p>
             )}
-            <Field label="Floor">
+            <Field label={t("common.floor")}>
               <input
                 className={inputClass}
                 type="number"
@@ -371,7 +390,7 @@ export default function RoomsPage() {
                 }
               />
             </Field>
-            <Field label="Nightly rate">
+            <Field label={t("rooms.nightlyRate")}>
               <input
                 className={inputClass}
                 type="number"
@@ -384,26 +403,26 @@ export default function RoomsPage() {
                 }
               />
             </Field>
-            <Field label="Status" className="sm:col-span-2">
+            <Field label={t("common.status")} className="sm:col-span-2">
               <select
                 className={inputClass}
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
               >
-                <option value="available">Available</option>
-                <option value="occupied">Occupied</option>
-                <option value="cleaning">Cleaning</option>
-                <option value="maintenance">Maintenance</option>
+                <option value="available">{t("status.available")}</option>
+                <option value="occupied">{t("status.occupied")}</option>
+                <option value="cleaning">{t("status.cleaning")}</option>
+                <option value="maintenance">{t("status.maintenance")}</option>
               </select>
             </Field>
           </div>
 
           <div className="mt-6 flex items-center gap-3 sm:justify-end">
             <Button size="sm" variant="outline" onClick={closeModal}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button size="sm" type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Save room"}
+              {saving ? t("common.saving") : t("rooms.saveRoom")}
             </Button>
           </div>
         </form>

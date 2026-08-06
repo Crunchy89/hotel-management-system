@@ -9,6 +9,7 @@ import {
 } from "@/components/rooms/roomTypeAmenities";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
+import { useT } from "@/context/LocaleContext";
 import type {
   BedSize,
   RoomTypeAmenities,
@@ -19,6 +20,9 @@ export type RoomTypeFormValues = {
   label: string;
   bed_size: BedSize;
   amenities: RoomTypeAmenities;
+  max_adults: number;
+  max_children: number;
+  max_infants: number;
 };
 
 interface RoomTypeDialogProps {
@@ -36,6 +40,9 @@ function formFrom(editing: RoomTypeRecord | null): RoomTypeFormValues {
     amenities: editing?.amenities
       ? { ...editing.amenities }
       : { ...DEFAULT_AMENITIES },
+    max_adults: editing?.max_adults ?? 2,
+    max_children: editing?.max_children ?? 1,
+    max_infants: editing?.max_infants ?? 1,
   };
 }
 
@@ -46,6 +53,7 @@ const RoomTypeDialog: React.FC<RoomTypeDialogProps> = ({
   onSave,
   onDelete,
 }) => {
+  const t = useT();
   const [form, setForm] = useState<RoomTypeFormValues>(() => formFrom(editing));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -80,26 +88,26 @@ const RoomTypeDialog: React.FC<RoomTypeDialogProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-[560px] p-6 lg:p-8">
       <h4 className="mb-1 text-theme-xl font-semibold text-gray-800 dark:text-white/90">
-        {editing ? "Edit room type" : "Add room type"}
+        {editing ? t("rooms.editType") : t("rooms.addTypeTitle")}
       </h4>
       <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-        Bed size and amenities apply to every room of this type.
+        {t("rooms.typeFormHint")}
       </p>
 
       <form onSubmit={onSubmit}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Display name" className="sm:col-span-2">
+          <Field label={t("rooms.displayName")} className="sm:col-span-2">
             <input
               className={inputClass}
               required
               autoFocus
-              placeholder="e.g. Double room"
+              placeholder={t("rooms.displayNamePlaceholder")}
               value={form.label}
               onChange={(e) => setForm({ ...form, label: e.target.value })}
             />
           </Field>
 
-          <Field label="Bed size" className="sm:col-span-2">
+          <Field label={t("rooms.bedSize")} className="sm:col-span-2">
             <select
               className={inputClass}
               value={form.bed_size}
@@ -109,16 +117,56 @@ const RoomTypeDialog: React.FC<RoomTypeDialogProps> = ({
             >
               {BED_SIZE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </option>
               ))}
             </select>
+          </Field>
+
+          <Field label={t("rooms.maxAdults")}>
+            <input
+              className={inputClass}
+              type="number"
+              min={1}
+              max={20}
+              required
+              value={form.max_adults}
+              onChange={(e) =>
+                setForm({ ...form, max_adults: Number(e.target.value) })
+              }
+            />
+          </Field>
+          <Field label={t("rooms.maxChildren")}>
+            <input
+              className={inputClass}
+              type="number"
+              min={0}
+              max={20}
+              required
+              value={form.max_children}
+              onChange={(e) =>
+                setForm({ ...form, max_children: Number(e.target.value) })
+              }
+            />
+          </Field>
+          <Field label={t("rooms.maxInfants")} className="sm:col-span-2">
+            <input
+              className={inputClass}
+              type="number"
+              min={0}
+              max={20}
+              required
+              value={form.max_infants}
+              onChange={(e) =>
+                setForm({ ...form, max_infants: Number(e.target.value) })
+              }
+            />
           </Field>
         </div>
 
         <fieldset className="mt-5">
           <legend className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-            In-room amenities
+            {t("rooms.inRoomAmenities")}
           </legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {AMENITY_OPTIONS.map((opt) => (
@@ -132,7 +180,7 @@ const RoomTypeDialog: React.FC<RoomTypeDialogProps> = ({
                   checked={form.amenities[opt.key]}
                   onChange={() => toggleAmenity(opt.key)}
                 />
-                {opt.label}
+                {t(opt.labelKey)}
               </label>
             ))}
           </div>
@@ -148,14 +196,18 @@ const RoomTypeDialog: React.FC<RoomTypeDialogProps> = ({
               disabled={deleting || saving}
               onClick={handleDelete}
             >
-              {deleting ? "Deleting…" : "Delete"}
+              {deleting ? t("common.deleting") : t("common.delete")}
             </Button>
           )}
           <Button size="sm" variant="outline" type="button" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button size="sm" type="submit" disabled={saving || deleting}>
-            {saving ? "Saving…" : editing ? "Save changes" : "Add type"}
+            {saving
+              ? t("common.saving")
+              : editing
+                ? t("rooms.saveChanges")
+                : t("rooms.addType")}
           </Button>
         </div>
       </form>

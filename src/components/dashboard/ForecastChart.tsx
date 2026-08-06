@@ -4,7 +4,7 @@ import React from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import type { DayMetrics } from "@/lib/metrics";
-import { formatDate } from "@/lib/metrics";
+import { formatCurrency, formatDate } from "@/lib/metrics";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
@@ -61,7 +61,7 @@ const ForecastChart: React.FC<ForecastChartProps> = ({ days, roomCount }) => {
           text: "Revenue",
           style: { fontFamily: "Outfit", fontWeight: 500 },
         },
-        labels: { formatter: (val: number) => `$${Math.round(val)}` },
+        labels: { formatter: (val: number) => formatCurrency(val) },
       },
     ],
     legend: {
@@ -78,7 +78,7 @@ const ForecastChart: React.FC<ForecastChartProps> = ({ days, roomCount }) => {
       intersect: false,
       y: [
         { formatter: (val: number) => `${val} rooms` },
-        { formatter: (val: number) => `$${Math.round(val)}` },
+        { formatter: (val: number) => formatCurrency(val) },
       ],
     },
     markers: { size: 0, hover: { size: 5 } },

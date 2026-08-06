@@ -3,9 +3,10 @@
 import React from "react";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
+import { useT } from "@/context/LocaleContext";
 import type { Reservation, Room } from "@/lib/types";
 import {
-  KEY_CARD_STATUS_COPY,
+  KEY_CARD_STATUS_TONE,
   KeyCardBody,
   useKeyCardEncoder,
 } from "./KeyCardPanel";
@@ -26,26 +27,34 @@ function KeyCardDialogInner({
   reservation: Reservation;
   rooms: Room[];
 }) {
+  const t = useT();
   const encoder = useKeyCardEncoder(reservation);
   const room = rooms.find((r) => r.id === reservation.room_id);
-  const copy = KEY_CARD_STATUS_COPY[encoder.status];
+  const statusLabel =
+    encoder.status === "active"
+      ? t("keycard.active")
+      : encoder.status === "revoked"
+        ? t("keycard.revoked")
+        : t("keycard.notWritten");
 
   return (
     <div className="flex max-h-[90vh] flex-col">
       <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4 pr-16 dark:border-gray-800 sm:px-6 sm:pr-20">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white/90">
-            Key card
+            {t("resDetail.tabKeycard")}
           </h3>
           <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
             {reservation.guest_name} ·{" "}
-            {room ? `Room ${room.number}` : "Unallocated"}
+            {room
+              ? t("keycard.roomLabel", { number: room.number })
+              : t("reservations.unallocated")}
           </p>
         </div>
         <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-theme-xs font-medium ${copy.tone}`}
+          className={`shrink-0 rounded-full px-2.5 py-1 text-theme-xs font-medium ${KEY_CARD_STATUS_TONE[encoder.status]}`}
         >
-          {copy.label}
+          {statusLabel}
         </span>
       </div>
 
@@ -61,14 +70,14 @@ function KeyCardDialogInner({
             onClick={() => void encoder.revoke()}
             className="text-sm font-medium text-error-600 hover:text-error-700 disabled:opacity-50 dark:text-error-400"
           >
-            Revoke key
+            {t("keycard.revoke")}
           </button>
         ) : (
           <span />
         )}
         <div className="ml-auto flex items-center gap-3">
           <Button size="sm" variant="outline" onClick={onClose}>
-            Close
+            {t("common.close")}
           </Button>
           <Button
             size="sm"

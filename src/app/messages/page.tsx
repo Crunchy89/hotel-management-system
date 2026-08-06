@@ -21,8 +21,10 @@ import {
 } from "@/lib/messaging";
 import type { MessageKind } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
+import { useT } from "@/context/LocaleContext";
 
 export default function MessagesPage() {
+  const t = useT();
   const {
     reservations,
     guests,
@@ -85,8 +87,8 @@ export default function MessagesPage() {
   return (
     <PageShell>
       <PageHeader
-        title="Guest messages"
-        description="Send confirmation, pre-arrival, and thank-you emails (stored locally — no real mail server)."
+        title={t("messages.title")}
+        description={t("messages.description")}
       />
 
       {error && <Alert>{error}</Alert>}

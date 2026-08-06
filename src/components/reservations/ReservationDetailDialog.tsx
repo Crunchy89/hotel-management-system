@@ -11,6 +11,7 @@ import { PaymentStatusBadge } from "@/components/reservations/PaymentStatusBadge
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
 import { selectClass } from "@/components/form";
+import { useT } from "@/context/LocaleContext";
 import { api } from "@/lib/api";
 import { folioBalance } from "@/lib/folio";
 import { dayDiff, formatDate } from "@/lib/metrics";
@@ -30,12 +31,12 @@ import {
 
 export type ReservationAction = "checkin" | "checkout" | "cancel";
 
-const TABS: { id: ReservationTab; label: string }[] = [
-  { id: "details", label: "Details" },
-  { id: "guest", label: "Guest" },
-  { id: "folio", label: "Folio" },
-  { id: "keycard", label: "Key card" },
-  { id: "notes", label: "Notes" },
+const TAB_KEYS: { id: ReservationTab; labelKey: string }[] = [
+  { id: "details", labelKey: "resDetail.tabDetails" },
+  { id: "guest", labelKey: "resDetail.tabGuest" },
+  { id: "folio", labelKey: "resDetail.tabFolio" },
+  { id: "keycard", labelKey: "resDetail.tabKeycard" },
+  { id: "notes", labelKey: "resDetail.tabNotes" },
 ];
 
 interface ReservationDetailDialogProps {
@@ -80,6 +81,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
   onMoveRoom,
   onCheckedIn,
 }) => {
+  const t = useT();
   const [tab, setTab] = useState<ReservationTab>("details");
   const [paymentCollect, setPaymentCollect] = useState<PaymentCollect>("property");
   const [savingPayment, setSavingPayment] = useState(false);
@@ -160,7 +162,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
     >
       <div className="flex max-h-[95vh] flex-col">
         <div className="flex shrink-0 gap-1 overflow-x-auto bg-brand-500 px-4 py-2">
-          {TABS.map((item) => (
+          {TAB_KEYS.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -171,7 +173,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                   : "text-white/90 hover:bg-white/15"
               }`}
             >
-              {item.label}
+              {t(item.labelKey)}
             </button>
           ))}
         </div>
@@ -186,7 +188,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   {isUnallocated
                     ? reservation.room_number
-                    : `Room ${reservation.room_number}${room ? ` · ${typeLabel}` : ""}`}
+                    : `${t("resDetail.roomLabel", { number: reservation.room_number ?? "" })}${room ? ` · ${typeLabel}` : ""}`}
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -200,7 +202,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                 <section className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
                   <dl className="divide-y divide-gray-100 dark:divide-gray-800">
                     <DetailRow
-                      label="Check-in"
+                      label={t("resDetail.checkIn")}
                       value={formatDate(reservation.check_in, {
                         weekday: "short",
                         month: "short",
@@ -208,44 +210,69 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                       })}
                     />
                     <DetailRow
-                      label="Check-out"
+                      label={t("resDetail.checkOut")}
                       value={formatDate(reservation.check_out, {
                         weekday: "short",
                         month: "short",
                         day: "numeric",
                       })}
                     />
-                    <DetailRow label="Length of stay" value={formatStayLength(nights)} />
-                    <DetailRow label="Room type" value={typeLabel} />
                     <DetailRow
-                      label="Room"
+                      label={t("resDetail.lengthOfStay")}
+                      value={formatStayLength(nights)}
+                    />
+                    <DetailRow label={t("resDetail.roomType")} value={typeLabel} />
+                    <DetailRow
+                      label={t("resDetail.room")}
                       value={
-                        isUnallocated ? "Unallocated" : `Room ${reservation.room_number}`
+                        isUnallocated
+                          ? t("resDetail.unallocated")
+                          : t("resDetail.roomLabel", {
+                              number: reservation.room_number ?? "",
+                            })
                       }
                     />
-                    <DetailRow label="Adults" value={reservation.adults ?? 1} />
-                    <DetailRow label="Children" value={reservation.children ?? 0} />
-                    <DetailRow label="Infants" value={reservation.infants ?? 0} />
-                    <DetailRow label="Booking source" value={reservation.booking_source} />
                     <DetailRow
-                      label="Payment status"
+                      label={t("resDetail.adults")}
+                      value={reservation.adults ?? 1}
+                    />
+                    <DetailRow
+                      label={t("resDetail.children")}
+                      value={reservation.children ?? 0}
+                    />
+                    <DetailRow
+                      label={t("resDetail.infants")}
+                      value={reservation.infants ?? 0}
+                    />
+                    <DetailRow
+                      label={t("resDetail.bookingSource")}
+                      value={reservation.booking_source}
+                    />
+                    <DetailRow
+                      label={t("resDetail.paymentStatus")}
                       value={
                         <PaymentStatusBadge status={paymentStatus} size="sm" />
                       }
                     />
-                    <DetailRow label="Arrival time" value={reservation.arrival_time} />
-                    <DetailRow label="Reference" value={reservation.reference} />
+                    <DetailRow
+                      label={t("resDetail.arrivalTime")}
+                      value={reservation.arrival_time}
+                    />
+                    <DetailRow
+                      label={t("resDetail.reference")}
+                      value={reservation.reference}
+                    />
                   </dl>
                 </section>
                 {reservation.status === "booked" && guest?.email && (
                   <Button size="sm" variant="outline" onClick={() => void sendPreArrival()}>
-                    Send pre-arrival email
+                    {t("resDetail.sendPreArrival")}
                   </Button>
                 )}
                 {reservation.status !== "cancelled" && (
                   <section className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
                     <h6 className="mb-3 text-xs font-semibold uppercase text-gray-500">
-                      Payment collection
+                      {t("resDetail.paymentCollection")}
                     </h6>
                     <select
                       className={selectClass}
@@ -274,7 +301,9 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                         disabled={savingPayment}
                         onClick={() => void savePaymentCollect()}
                       >
-                        {savingPayment ? "Saving…" : "Save payment setting"}
+                        {savingPayment
+                          ? t("common.saving")
+                          : t("resDetail.savePayment")}
                       </Button>
                     )}
                   </section>
@@ -285,18 +314,27 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
             {tab === "guest" && guest && (
               <section className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
                 <dl className="divide-y divide-gray-100 dark:divide-gray-800">
-                  <DetailRow label="Email" value={guest.email} />
-                  <DetailRow label="Mobile" value={guest.phone} />
-                  <DetailRow label="Organization" value={guest.organization} />
-                  <DetailRow label="Address" value={guest.address_line1} />
+                  <DetailRow label={t("common.email")} value={guest.email} />
+                  <DetailRow label={t("resDetail.mobile")} value={guest.phone} />
+                  <DetailRow
+                    label={t("resDetail.organization")}
+                    value={guest.organization}
+                  />
+                  <DetailRow
+                    label={t("resDetail.address")}
+                    value={guest.address_line1}
+                  />
                   <DetailRow label="" value={guest.address_line2} />
                   <DetailRow
-                    label="City / Country"
+                    label={t("resDetail.cityCountry")}
                     value={[guest.city, guest.country].filter(Boolean).join(", ")}
                   />
-                  <DetailRow label="Postal code" value={guest.postal_code} />
                   <DetailRow
-                    label="ID document"
+                    label={t("resDetail.postalCode")}
+                    value={guest.postal_code}
+                  />
+                  <DetailRow
+                    label={t("resDetail.idDocument")}
                     value={
                       guest.id_document_type
                         ? `${guest.id_document_type}: ${guest.id_document}`
@@ -320,7 +358,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                 {reservation.notes && (
                   <div className="mb-4">
                     <h6 className="mb-1 text-xs font-semibold uppercase text-gray-500">
-                      Internal notes
+                      {t("resDetail.internalNotes")}
                     </h6>
                     <p className="text-sm text-gray-700 dark:text-gray-300">
                       {reservation.notes}
@@ -330,7 +368,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                 {reservation.guest_comments && (
                   <div>
                     <h6 className="mb-1 text-xs font-semibold uppercase text-gray-500">
-                      Guest comments
+                      {t("resDetail.guestComments")}
                     </h6>
                     <p className="text-sm text-gray-700 dark:text-gray-300">
                       {reservation.guest_comments}
@@ -339,7 +377,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                 )}
                 {!reservation.notes && !reservation.guest_comments && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    No notes recorded.
+                    {t("resDetail.noNotes")}
                   </p>
                 )}
               </section>
@@ -348,12 +386,12 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
 
           <aside className="w-full shrink-0 rounded-xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:w-72">
             <h5 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
-              Booking summary
+              {t("resDetail.bookingSummary")}
             </h5>
 
             <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900/40">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Payment status
+                {t("resDetail.paymentStatus")}
               </p>
               <div className="mt-2">
                 <PaymentStatusBadge status={paymentStatus} />
@@ -362,26 +400,26 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
 
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between gap-3">
-                <dt className="text-gray-500">Room total</dt>
+                <dt className="text-gray-500">{t("resDetail.roomTotal")}</dt>
                 <dd className="font-medium tabular-nums">
                   {formatCurrency(totals.roomTotal)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-gray-500">Extra persons</dt>
+                <dt className="text-gray-500">{t("resDetail.extraPersons")}</dt>
                 <dd className="font-medium tabular-nums">
                   {formatCurrency(form.extra_person || 0)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-gray-500">Discount</dt>
+                <dt className="text-gray-500">{t("resDetail.discount")}</dt>
                 <dd className="font-medium tabular-nums">
                   −{formatCurrency(form.discount || 0)}
                 </dd>
               </div>
               {balance.charges > 0 && (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-gray-500">Folio charges</dt>
+                  <dt className="text-gray-500">{t("resDetail.folioCharges")}</dt>
                   <dd className="font-medium tabular-nums">
                     {formatCurrency(balance.charges)}
                   </dd>
@@ -389,20 +427,22 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
               )}
               <div className="border-t border-gray-200 pt-2 dark:border-gray-700">
                 <div className="flex justify-between gap-3">
-                  <dt className="font-semibold">Total</dt>
+                  <dt className="font-semibold">{t("resDetail.total")}</dt>
                   <dd className="font-semibold tabular-nums">
                     {formatCurrency(balance.total)}
                   </dd>
                 </div>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-gray-500">Received</dt>
+                <dt className="text-gray-500">{t("resDetail.received")}</dt>
                 <dd className="font-medium tabular-nums">
                   {formatCurrency(balance.paid)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="font-semibold text-error-600">Amount due</dt>
+                <dt className="font-semibold text-error-600">
+                  {t("resDetail.amountDue")}
+                </dt>
                 <dd className="font-bold tabular-nums text-error-600">
                   {formatCurrency(balance.due)}
                 </dd>
@@ -413,7 +453,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
               className="mt-4 text-xs font-semibold text-brand-600 hover:underline"
               onClick={() => setTab("folio")}
             >
-              Manage folio →
+              {t("resDetail.manageFolio")}
             </button>
           </aside>
         </div>
@@ -423,21 +463,21 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
             (confirmCancel ? (
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm text-gray-600 dark:text-gray-300">
-                  Cancel this booking and release the room?
+                  {t("resDetail.confirmCancel")}
                 </span>
                 <Button
                   size="xs"
                   variant="danger"
                   onClick={() => void run("cancel")}
                 >
-                  Yes, cancel booking
+                  {t("resDetail.yesCancel")}
                 </Button>
                 <button
                   type="button"
                   onClick={() => setConfirmCancel(false)}
                   className="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400"
                 >
-                  Keep booking
+                  {t("resDetail.keepBooking")}
                 </button>
               </div>
             ) : (
@@ -446,12 +486,12 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                 variant="danger"
                 onClick={() => setConfirmCancel(true)}
               >
-                Cancel booking
+                {t("resDetail.cancelBooking")}
               </Button>
             ))}
           <div className="ml-auto flex flex-wrap items-center gap-3">
             <Button size="sm" variant="outline" onClick={close}>
-              Close
+              {t("common.close")}
             </Button>
             {reservation.status === "checked_in" && (
               <Button
@@ -459,7 +499,7 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                 variant="outline"
                 onClick={() => setTab("keycard")}
               >
-                Generate key
+                {t("resDetail.generateKey")}
               </Button>
             )}
             {onMoveRoom && isActiveStay && (
@@ -468,17 +508,17 @@ const ReservationDetailDialog: React.FC<ReservationDetailDialogProps> = ({
                 variant="outline"
                 onClick={() => onMoveRoom(reservation)}
               >
-                Move room
+                {t("resDetail.moveRoom")}
               </Button>
             )}
             {reservation.status === "booked" && !isUnallocated && (
               <Button size="sm" onClick={() => void run("checkin")}>
-                Check in
+                {t("resDetail.checkIn")}
               </Button>
             )}
             {reservation.status === "checked_in" && (
               <Button size="sm" onClick={() => void run("checkout")}>
-                Check out
+                {t("resDetail.checkOut")}
               </Button>
             )}
           </div>

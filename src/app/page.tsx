@@ -14,6 +14,7 @@ import ReservationDetailDialog, {
 import { Alert } from "@/components/form";
 import Button from "@/components/ui/button/Button";
 import { PageShell } from "@/components/ui/layout";
+import { useT } from "@/context/LocaleContext";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
 import {
@@ -29,6 +30,7 @@ import type { Reservation } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
 
 export default function DashboardPage() {
+  const t = useT();
   const { rooms, reservations, guests, room_types, error, reload, mutate } =
     useHotelData();
   const [selected, setSelected] = useState<Reservation | null>(null);
@@ -92,15 +94,15 @@ export default function DashboardPage() {
   return (
     <PageShell>
       <PageHeader
-        title="Daily operations"
-        description="Everything the front desk needs to start the day."
+        title={t("dashboard.title")}
+        description={t("dashboard.description")}
         action={
           <>
             <Link href="/reservations">
-              <Button size="sm">Open reservations</Button>
+              <Button size="sm">{t("dashboard.openReservations")}</Button>
             </Link>
             <Button size="sm" variant="outline" onClick={() => void reload()}>
-              Refresh
+              {t("dashboard.refresh")}
             </Button>
           </>
         }
@@ -110,53 +112,60 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
         <MetricCard
-          label="Occupancy today"
+          label={t("dashboard.occupancyToday")}
           value={`${occupancyToday}%`}
-          hint={`${todayMetrics?.occupied ?? 0} of ${rooms.length} rooms sold`}
+          hint={t("dashboard.roomsSoldHint", {
+            occupied: todayMetrics?.occupied ?? 0,
+            total: rooms.length,
+          })}
           tone="brand"
         />
         <MetricCard
-          label="Revenue today"
+          label={t("dashboard.revenueToday")}
           value={formatCurrency(todayMetrics?.revenue ?? 0)}
-          hint={`${formatCurrency(weekSummary.revenue)} next 7 days`}
+          hint={t("dashboard.next7Days", {
+            amount: formatCurrency(weekSummary.revenue),
+          })}
           tone="success"
         />
         <MetricCard
-          label="ADR (7 days)"
+          label={t("dashboard.adr7d")}
           value={formatCurrency(weekSummary.adr)}
-          hint="Average daily rate per sold room"
+          hint={t("dashboard.adrHint")}
           tone="info"
         />
         <MetricCard
-          label="RevPAR (7 days)"
+          label={t("dashboard.revpar7d")}
           value={formatCurrency(weekSummary.revpar)}
-          hint={`${Math.round(weekSummary.occupancyRate * 100)}% forecast occupancy`}
+          hint={t("dashboard.revparHint", {
+            pct: Math.round(weekSummary.occupancyRate * 100),
+          })}
           tone="warning"
         />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-3">
         <OperationsList
-          title="Arrivals today"
-          emptyLabel="No arrivals scheduled."
+          title={t("dashboard.arrivalsToday")}
+          emptyLabel={t("dashboard.noArrivals")}
           reservations={arrivals}
           tone="brand"
-          actionLabel="Check in"
+          actionLabel={t("resDetail.checkIn")}
           onAction={(id) => void onAction("checkin", id)}
           onSelect={openReservation}
         />
         <OperationsList
-          title="Departures today"
-          emptyLabel="No departures scheduled."
+          title={t("dashboard.departuresToday")}
+          emptyLabel={t("dashboard.noDepartures")}
           reservations={departures}
           tone="warning"
-          actionLabel="Check out"
+          actionLabel={t("resDetail.checkOut")}
           onAction={(id) => void onAction("checkout", id)}
           onSelect={openReservation}
         />
         <OperationsList
-          title="In house"
-          emptyLabel="No guests staying tonight."
+          title={t("dashboard.inHouse")}
+          emptyLabel={t("dashboard.noInHouse")}
           reservations={inHouse}
           tone="success"
           onSelect={openReservation}
@@ -165,14 +174,17 @@ export default function DashboardPage() {
 
       <div className="mt-4 grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-3">
         <ComponentCard
-          title="14-day forecast"
-          desc="Rooms sold and expected room revenue"
+          title={t("dashboard.forecast14d")}
+          desc={t("dashboard.forecastDesc")}
           className="xl:col-span-2"
         >
           <ForecastChart days={forecast} roomCount={rooms.length} />
         </ComponentCard>
 
-        <ComponentCard title="Room status" desc="Current housekeeping split">
+        <ComponentCard
+          title={t("dashboard.roomStatus")}
+          desc={t("dashboard.roomStatusDesc")}
+        >
           <RoomStatusChart {...roomCounts} />
         </ComponentCard>
       </div>

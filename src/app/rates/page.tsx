@@ -25,8 +25,10 @@ import { api } from "@/lib/api";
 import { addDays, todayISO } from "@/lib/metrics";
 import type { BulkRateUpdateInput } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
+import { useT } from "@/context/LocaleContext";
 
 export default function RatesPage() {
+  const t = useT();
   const {
     room_types,
     rate_plans,
@@ -107,8 +109,8 @@ export default function RatesPage() {
   return (
     <PageShell>
       <PageHeader
-        title="Rooms & Prices"
-        description="Control room rates and availability by room type."
+        title={t("rates.title")}
+        description={t("rates.description")}
         action={
           <Button size="sm" onClick={bulkModal.openModal}>
             Bulk update
@@ -234,7 +236,7 @@ export default function RatesPage() {
                     variant="outline"
                     onClick={() => setStartDate(today)}
                   >
-                    Today
+                    {t("reservations.today")}
                   </Button>
                   <Button
                     size="xs"

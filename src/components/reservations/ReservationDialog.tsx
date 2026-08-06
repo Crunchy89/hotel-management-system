@@ -310,7 +310,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                         readOnly
                         value={
                           selectedRoom
-                            ? `$${selectedRoom.rate}/night`
+                            ? `${formatCurrency(selectedRoom.rate)}/night`
                             : isUnallocated
                               ? "Unallocated"
                               : "—"
@@ -387,7 +387,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                     <Field label="Room charge">
                       <div className="relative">
                         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                          $
+                          Rp
                         </span>
                         <input
                           className={`${inputClass} pl-7`}
@@ -407,7 +407,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                     <Field label="Extra person">
                       <div className="relative">
                         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                          $
+                          Rp
                         </span>
                         <input
                           className={`${inputClass} pl-7`}
@@ -424,7 +424,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                     <Field label="Discount">
                       <div className="relative">
                         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                          $
+                          Rp
                         </span>
                         <input
                           className={`${inputClass} pl-7`}
@@ -730,7 +730,7 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
                 <Field label="Amount received">
                   <div className="relative max-w-xs">
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                      $
+                      Rp
                     </span>
                     <input
                       className={`${inputClass} pl-7`}

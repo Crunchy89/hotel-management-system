@@ -18,14 +18,15 @@ import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
 import { PageShell, SurfaceCard, TwoColumnLayout, PageSectionNav } from "@/components/ui/layout";
 import { useModal } from "@/hooks/useModal";
+import { useT } from "@/context/LocaleContext";
 
 const DEFAULT_FROM = "2025-09-11";
 const DEFAULT_TO = "2025-09-11";
 
 const CHECK_IN_NAV = [
-  { name: "Check-In", path: "#check-in-report" },
-  { name: "Check-Out", path: "#check-out-report" },
-  { name: "Booking activity", path: "/booking-activity" },
+  { labelKey: "checkIn.title", path: "#check-in-report" },
+  { labelKey: "checkIn.checkOut", path: "#check-out-report" },
+  { labelKey: "nav.bookingActivity", path: "/booking-activity" },
 ];
 
 const reportDateClass =
@@ -248,6 +249,7 @@ function ReportTable({
 }
 
 export default function CheckInPage() {
+  const t = useT();
   const [draftFrom, setDraftFrom] = useState(DEFAULT_FROM);
   const [draftTo, setDraftTo] = useState(DEFAULT_TO);
   const [appliedFrom, setAppliedFrom] = useState(DEFAULT_FROM);
@@ -282,7 +284,7 @@ export default function CheckInPage() {
 
   return (
     <PageShell className="space-y-5">
-      <PageHeader title="Check-In" />
+      <PageHeader title={t("checkIn.title")} />
 
       <TwoColumnLayout sidebar={<PageSectionNav items={CHECK_IN_NAV} />}>
         <div className="space-y-5">

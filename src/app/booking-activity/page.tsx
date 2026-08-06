@@ -1,10 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import PageHeader from "@/components/common/PageHeader";
 import {
-  ACTIVITY_KIND_LABELS,
-  ACTIVITY_KIND_OPTIONS,
+  ACTIVITY_KIND_OPTION_VALUES,
   activityKindTone,
   defaultActivityFilters,
   exportActivitiesCsv,
@@ -19,7 +16,6 @@ import { inputClass, selectClass } from "@/components/form";
 import {
   EmptyState,
   FilterField,
-  FilterPanel,
   PageSectionNav,
   PageShell,
   SurfaceCard,
@@ -34,8 +30,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useT } from "@/context/LocaleContext";
 import { todayISO } from "@/lib/metrics";
 import { useHotelData } from "@/lib/useHotelData";
+import { formatCurrency } from "@/lib/metrics";
+import PageHeader from "@/components/common/PageHeader";
+import { FormEvent, useMemo, useState } from "react";
 
 const reportDateClass =
   "h-10 w-full min-w-[168px] rounded-lg border border-gray-200 bg-white px-3 text-theme-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-4 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90";
@@ -68,6 +68,7 @@ function ExportIcon() {
 }
 
 export default function BookingActivityPage() {
+  const t = useT();
   const { booking_activities, loading } = useHotelData();
   const [draft, setDraft] = useState<ActivityFilters>(() =>
     defaultActivityFilters(todayISO()),
@@ -111,8 +112,8 @@ export default function BookingActivityPage() {
   return (
     <PageShell className="space-y-5">
       <PageHeader
-        title="Booking activity"
-        description="Audit log of new bookings, payments, cancellations, and check-in/out events."
+        title={t("bookingActivity.title")}
+        description={t("bookingActivity.description")}
       />
 
       <TwoColumnLayout sidebar={<PageSectionNav />}>
@@ -155,9 +156,9 @@ export default function BookingActivityPage() {
                     }))
                   }
                 >
-                  {ACTIVITY_KIND_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
+                  {ACTIVITY_KIND_OPTION_VALUES.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`activity.${value}`)}
                     </option>
                   ))}
                 </select>
@@ -216,7 +217,7 @@ export default function BookingActivityPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <SurfaceCard className="px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                New bookings
+                {t("bookingActivity.newBookings")}
               </p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-brand-600 dark:text-brand-400">
                 {summary.booking_created}
@@ -224,7 +225,7 @@ export default function BookingActivityPage() {
             </SurfaceCard>
             <SurfaceCard className="px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Payments
+                {t("bookingActivity.payments")}
               </p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-success-600 dark:text-success-400">
                 {summary.payment_received}
@@ -232,7 +233,7 @@ export default function BookingActivityPage() {
             </SurfaceCard>
             <SurfaceCard className="px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Cancellations
+                {t("bookingActivity.cancellations")}
               </p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-error-600 dark:text-error-400">
                 {summary.booking_cancelled}
@@ -252,25 +253,25 @@ export default function BookingActivityPage() {
                   <TableHeader>
                     <TableRow>
                       <TableCell isHeader className={tableHeaderCell}>
-                        When
+                        {t("bookingActivity.when")}
                       </TableCell>
                       <TableCell isHeader className={tableHeaderCell}>
-                        Event
+                        {t("bookingActivity.event")}
                       </TableCell>
                       <TableCell isHeader className={tableHeaderCell}>
-                        Reference
+                        {t("bookingActivity.reference")}
                       </TableCell>
                       <TableCell isHeader className={tableHeaderCell}>
-                        Guest
+                        {t("bookingActivity.guest")}
                       </TableCell>
                       <TableCell isHeader className={tableHeaderCell}>
-                        Source
+                        {t("bookingActivity.source")}
                       </TableCell>
                       <TableCell isHeader className={tableHeaderCell}>
-                        Amount
+                        {t("bookingActivity.amount")}
                       </TableCell>
                       <TableCell isHeader className={tableHeaderCell}>
-                        Description
+                        {t("bookingActivity.descriptionCol")}
                       </TableCell>
                     </TableRow>
                   </TableHeader>
@@ -285,7 +286,7 @@ export default function BookingActivityPage() {
                             size="sm"
                             color={kindBadgeColor(activityKindTone(row.kind))}
                           >
-                            {ACTIVITY_KIND_LABELS[row.kind]}
+                            {t(`activity.${row.kind}`)}
                           </Badge>
                         </TableCell>
                         <TableCell className={tableBodyCell}>
@@ -299,7 +300,7 @@ export default function BookingActivityPage() {
                         </TableCell>
                         <TableCell className={`${tableBodyCell} tabular-nums`}>
                           {row.amount != null
-                            ? `€${row.amount.toFixed(2)}`
+                            ? formatCurrency(row.amount)
                             : "—"}
                         </TableCell>
                         <TableCell

@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useT } from "@/context/LocaleContext";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
 import type { Guest } from "@/lib/types";
@@ -32,6 +33,7 @@ const emptyForm = {
 };
 
 export default function GuestsPage() {
+  const t = useT();
   const { guests, loading, error, mutate } = useHotelData();
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Guest | null>(null);
@@ -80,14 +82,19 @@ export default function GuestsPage() {
     if (ok) closeModal();
   }
 
+  const onFileLabel =
+    guests.length === 1
+      ? t("guests.onFile", { count: guests.length })
+      : t("guests.onFile_other", { count: guests.length });
+
   return (
     <PageShell>
       <PageHeader
-        title="Guests"
-        description="Guest profiles for bookings and front desk."
+        title={t("guests.title")}
+        description={t("guests.description")}
         action={
           <Button size="sm" onClick={openCreate}>
-            Add guest
+            {t("guests.add")}
           </Button>
         }
       />
@@ -95,12 +102,12 @@ export default function GuestsPage() {
       {error && <Alert>{error}</Alert>}
 
       <ComponentCard
-        title="Guest directory"
-        desc={`${guests.length} guest${guests.length === 1 ? "" : "s"} on file`}
+        title={t("guests.directory")}
+        desc={onFileLabel}
         action={
           <input
             className={`${inputClass} sm:w-72`}
-            placeholder="Search name, email, phone…"
+            placeholder={t("guests.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -111,19 +118,19 @@ export default function GuestsPage() {
             <TableHeader className="border-b border-gray-100 dark:border-gray-800">
               <TableRow>
                 <TableCell isHeader className={headerCell}>
-                  Name
+                  {t("common.name")}
                 </TableCell>
                 <TableCell isHeader className={headerCell}>
-                  Email
+                  {t("common.email")}
                 </TableCell>
                 <TableCell isHeader className={headerCell}>
-                  Phone
+                  {t("common.phone")}
                 </TableCell>
                 <TableCell isHeader className={headerCell}>
-                  ID document
+                  {t("guests.idDocument")}
                 </TableCell>
                 <TableCell isHeader className={headerCell}>
-                  Actions
+                  {t("common.actions")}
                 </TableCell>
               </TableRow>
             </TableHeader>
@@ -134,7 +141,7 @@ export default function GuestsPage() {
                     colSpan={5}
                     className="px-5 py-8 text-center text-theme-sm text-gray-500 dark:text-gray-400"
                   >
-                    {loading ? "Loading…" : "No guests found."}
+                    {loading ? t("common.loading") : t("guests.noGuestsFound")}
                   </TableCell>
                 </TableRow>
               )}
@@ -166,7 +173,7 @@ export default function GuestsPage() {
                       variant="outline"
                       onClick={() => openEdit(guest)}
                     >
-                      Edit
+                      {t("common.edit")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -178,15 +185,15 @@ export default function GuestsPage() {
 
       <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[600px] p-6 lg:p-8">
         <h4 className="mb-1 text-theme-xl font-semibold text-gray-800 dark:text-white/90">
-          {editing ? "Edit guest" : "Add guest"}
+          {editing ? t("guests.edit") : t("guests.add")}
         </h4>
         <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-          Guest details used for reservations and check-in.
+          {t("guests.formHint")}
         </p>
 
         <form onSubmit={onSubmit}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="First name">
+            <Field label={t("guests.firstName")}>
               <input
                 className={inputClass}
                 required
@@ -196,7 +203,7 @@ export default function GuestsPage() {
                 }
               />
             </Field>
-            <Field label="Last name">
+            <Field label={t("guests.lastName")}>
               <input
                 className={inputClass}
                 required
@@ -204,7 +211,7 @@ export default function GuestsPage() {
                 onChange={(e) => setForm({ ...form, last_name: e.target.value })}
               />
             </Field>
-            <Field label="Email" className="sm:col-span-2">
+            <Field label={t("common.email")} className="sm:col-span-2">
               <input
                 className={inputClass}
                 type="email"
@@ -212,14 +219,14 @@ export default function GuestsPage() {
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
             </Field>
-            <Field label="Phone">
+            <Field label={t("common.phone")}>
               <input
                 className={inputClass}
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
             </Field>
-            <Field label="ID document">
+            <Field label={t("guests.idDocument")}>
               <input
                 className={inputClass}
                 value={form.id_document}
@@ -232,10 +239,10 @@ export default function GuestsPage() {
 
           <div className="mt-6 flex items-center gap-3 sm:justify-end">
             <Button size="sm" variant="outline" onClick={closeModal}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button size="sm" type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Save guest"}
+              {saving ? t("common.saving") : t("guests.save")}
             </Button>
           </div>
         </form>

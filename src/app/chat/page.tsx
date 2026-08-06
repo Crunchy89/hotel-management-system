@@ -7,6 +7,7 @@ import Button from "@/components/ui/button/Button";
 import { EmptyState, PageShell, SurfaceCard } from "@/components/ui/layout";
 import { useClientChat } from "@/lib/useClientChat";
 import { useHotelData } from "@/lib/useHotelData";
+import { useT } from "@/context/LocaleContext";
 
 function formatTime(iso: string) {
   try {
@@ -20,6 +21,7 @@ function formatTime(iso: string) {
 }
 
 export default function ClientChatPage() {
+  const t = useT();
   const { reservations, guests, loading: dataLoading } = useHotelData();
   const { messages, threads, loading, seed, send, messagesForReservation } =
     useClientChat(reservations, guests);
@@ -116,8 +118,8 @@ export default function ClientChatPage() {
   return (
     <PageShell>
       <PageHeader
-        title="Client chat"
-        description="Live messaging with guests about their stay — questions, requests, and updates."
+        title={t("chat.title")}
+        description={t("chat.description")}
       />
 
       <div className="grid gap-8 xl:grid-cols-[320px_minmax(0,1fr)]">

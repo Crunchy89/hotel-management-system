@@ -12,13 +12,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { tableBodyCell, tableHeaderCell } from "@/components/ui/layout";
-import { selectClass } from "@/components/form";
+import { inputClass, selectClass } from "@/components/form";
 import DateRangeInput from "@/components/form/DateRangeInput";
+import { useT } from "@/context/LocaleContext";
 import {
   availableRoomsForDates,
   dayDiff,
   formatCurrency,
   formatDate,
+  roomTypeFitsParty,
 } from "@/lib/metrics";
 import type { Reservation, Room, RoomTypeRecord } from "@/lib/types";
 
@@ -31,12 +33,23 @@ interface AvailableRoomsModalProps {
   checkIn: string;
   checkOut: string;
   roomType?: string;
+  adults: number;
+  children: number;
+  infants: number;
   onChange: (values: {
     from?: string;
     to?: string;
     roomType?: string;
+    adults?: number;
+    children?: number;
+    infants?: number;
   }) => void;
-  onReserve: (room: Room, checkIn: string, checkOut: string) => void;
+  onReserve: (
+    room: Room,
+    checkIn: string,
+    checkOut: string,
+    party: { adults: number; children: number; infants: number },
+  ) => void;
 }
 
 export default function AvailableRoomsModal({
@@ -48,26 +61,63 @@ export default function AvailableRoomsModal({
   checkIn,
   checkOut,
   roomType,
+  adults,
+  children,
+  infants,
   onChange,
   onReserve,
 }: AvailableRoomsModalProps) {
+  const t = useT();
   const nights = Math.max(0, dayDiff(checkIn, checkOut));
-  const available = useMemo(
-    () =>
-      availableRoomsForDates(
-        rooms,
-        reservations,
-        checkIn,
-        checkOut,
-        roomType || undefined,
-      ),
-    [rooms, reservations, checkIn, checkOut, roomType],
-  );
+  const typeBySlug = useMemo(() => {
+    const map = new Map<string, RoomTypeRecord>();
+    for (const type of roomTypes) map.set(type.slug, type);
+    return map;
+  }, [roomTypes]);
+
+  const available = useMemo(() => {
+    const byDate = availableRoomsForDates(
+      rooms,
+      reservations,
+      checkIn,
+      checkOut,
+      roomType || undefined,
+    );
+    return byDate.filter((room) => {
+      const type = typeBySlug.get(room.type);
+      if (!type) return true;
+      return roomTypeFitsParty(type, adults, children, infants);
+    });
+  }, [
+    rooms,
+    reservations,
+    checkIn,
+    checkOut,
+    roomType,
+    typeBySlug,
+    adults,
+    children,
+    infants,
+  ]);
 
   const typeLabel = (slug: string) =>
-    roomTypes.find((t) => t.slug === slug)?.label ?? slug;
+    roomTypes.find((entry) => entry.slug === slug)?.label ?? slug;
 
   const datesValid = Boolean(checkIn && checkOut && checkOut > checkIn);
+  const summaryKey =
+    nights === 1 && available.length === 1
+      ? "available.summary"
+      : "available.summary_other";
+
+  function occupancyHint(slug: string): string {
+    const type = typeBySlug.get(slug);
+    if (!type) return "";
+    return t("available.capacityHint", {
+      adults: type.max_adults,
+      children: type.max_children,
+      infants: type.max_infants,
+    });
+  }
 
   return (
     <Modal
@@ -78,40 +128,92 @@ export default function AvailableRoomsModal({
       <div className="flex max-h-[90vh] flex-col">
         <div className="shrink-0 border-b border-gray-200 px-5 py-4 pr-16 dark:border-gray-800 sm:px-6 sm:pr-20">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white/90">
-            Find available rooms
+            {t("available.title")}
           </h3>
           <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-            Pick the stay dates, then reserve straight from the list.
+            {t("available.description")}
           </p>
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Stay dates
+                {t("available.dates")}
               </label>
               <DateRangeInput
                 from={checkIn}
                 to={checkOut}
-                placeholder="Date from – date to"
+                placeholder={t("available.datesPlaceholder")}
                 onChange={(from, to) => onChange({ from, to })}
               />
             </div>
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Room type
+                {t("available.roomType")}
               </label>
               <select
                 className={selectClass}
                 value={roomType ?? ""}
                 onChange={(e) => onChange({ roomType: e.target.value })}
               >
-                <option value="">Any room type</option>
+                <option value="">{t("available.anyType")}</option>
                 {roomTypes.map((type) => (
                   <option key={type.slug} value={type.slug}>
                     {type.label}
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {t("available.adults")}
+              </label>
+              <input
+                className={inputClass}
+                type="number"
+                min={1}
+                max={20}
+                value={adults}
+                onChange={(e) =>
+                  onChange({ adults: Math.max(1, Number(e.target.value) || 1) })
+                }
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {t("available.children")}
+              </label>
+              <input
+                className={inputClass}
+                type="number"
+                min={0}
+                max={20}
+                value={children}
+                onChange={(e) =>
+                  onChange({
+                    children: Math.max(0, Number(e.target.value) || 0),
+                  })
+                }
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {t("available.infants")}
+              </label>
+              <input
+                className={inputClass}
+                type="number"
+                min={0}
+                max={20}
+                value={infants}
+                onChange={(e) =>
+                  onChange({
+                    infants: Math.max(0, Number(e.target.value) || 0),
+                  })
+                }
+              />
             </div>
           </div>
 
@@ -128,8 +230,12 @@ export default function AvailableRoomsModal({
                 month: "short",
                 day: "numeric",
               })}{" "}
-              · {nights} night{nights === 1 ? "" : "s"} · {available.length} room
-              {available.length === 1 ? "" : "s"} free
+              · {t(summaryKey, { nights, rooms: available.length })} ·{" "}
+              {t("available.partySummary", {
+                adults,
+                children,
+                infants,
+              })}
             </p>
           )}
         </div>
@@ -137,36 +243,39 @@ export default function AvailableRoomsModal({
         <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
           {!datesValid ? (
             <p className="px-5 py-10 text-center text-theme-sm text-gray-500">
-              Date to must be after date from.
+              {t("available.invalidDates")}
             </p>
           ) : available.length === 0 ? (
             <p className="px-5 py-10 text-center text-theme-sm text-gray-500">
-              No rooms available for these dates.
+              {t("available.noRoomsParty")}
             </p>
           ) : (
             <Table>
               <TableHeader className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
                 <TableRow>
                   <TableCell isHeader className={tableHeaderCell}>
-                    Room
+                    {t("available.room")}
                   </TableCell>
                   <TableCell isHeader className={tableHeaderCell}>
-                    Type
+                    {t("available.type")}
                   </TableCell>
                   <TableCell isHeader className={tableHeaderCell}>
-                    Floor
+                    {t("available.capacity")}
                   </TableCell>
                   <TableCell isHeader className={tableHeaderCell}>
-                    Nightly
+                    {t("available.floor")}
                   </TableCell>
                   <TableCell isHeader className={tableHeaderCell}>
-                    Stay total
+                    {t("available.nightly")}
                   </TableCell>
                   <TableCell isHeader className={tableHeaderCell}>
-                    Status
+                    {t("available.stayTotal")}
+                  </TableCell>
+                  <TableCell isHeader className={tableHeaderCell}>
+                    {t("available.status")}
                   </TableCell>
                   <TableCell isHeader className={`${tableHeaderCell} text-right`}>
-                    Action
+                    {t("available.action")}
                   </TableCell>
                 </TableRow>
               </TableHeader>
@@ -181,10 +290,15 @@ export default function AvailableRoomsModal({
                       <TableCell
                         className={`${tableBodyCell} font-medium text-gray-800 dark:text-white/90`}
                       >
-                        Room {room.number}
+                        {t("available.roomLabel", { number: room.number })}
                       </TableCell>
                       <TableCell className={tableBodyCell}>
                         {typeLabel(room.type)}
+                      </TableCell>
+                      <TableCell className={tableBodyCell}>
+                        <span className="text-theme-xs text-gray-500 dark:text-gray-400">
+                          {occupancyHint(room.type)}
+                        </span>
                       </TableCell>
                       <TableCell className={tableBodyCell}>
                         {room.floor}
@@ -203,9 +317,15 @@ export default function AvailableRoomsModal({
                       <TableCell className={`${tableBodyCell} text-right`}>
                         <Button
                           size="sm"
-                          onClick={() => onReserve(room, checkIn, checkOut)}
+                          onClick={() =>
+                            onReserve(room, checkIn, checkOut, {
+                              adults,
+                              children,
+                              infants,
+                            })
+                          }
                         >
-                          Reserve
+                          {t("available.reserve")}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -218,7 +338,7 @@ export default function AvailableRoomsModal({
 
         <div className="flex shrink-0 justify-end border-t border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
           <Button size="sm" variant="outline" onClick={onClose}>
-            Close
+            {t("common.close")}
           </Button>
         </div>
       </div>

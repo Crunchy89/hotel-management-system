@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { Alert } from "@/components/form";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
+import { useT } from "@/context/LocaleContext";
 import { api } from "@/lib/api";
 import {
   availableRoomsForDates,
@@ -36,6 +37,7 @@ function MoveRoomBody({
   reservations,
   onMoved,
 }: MoveRoomBodyProps) {
+  const t = useT();
   const { mutate } = useHotelData();
   const [targetId, setTargetId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -61,7 +63,7 @@ function MoveRoomBody({
   const target = candidates.find((r) => r.id === targetId);
   const rateDelta = target ? (target.rate - (current?.rate ?? 0)) * nights : 0;
   const typeLabel = (slug: string) =>
-    roomTypes.find((t) => t.slug === slug)?.label ?? slug;
+    roomTypes.find((rt) => rt.slug === slug)?.label ?? slug;
 
   async function move() {
     if (!targetId) return;
@@ -75,7 +77,44 @@ function MoveRoomBody({
       onMoved?.();
       onClose();
     } else {
-      setError("That room could not be used. Pick another one.");
+      setError(t("moveRoom.error"));
+    }
+  }
+
+  const currentRoomLabel = current
+    ? t("moveRoom.roomLabel", { number: current.number })
+    : t("moveRoom.unallocated");
+
+  let footerHint = t("moveRoom.keyRevoked");
+  if (target) {
+    if (rateDelta === 0) {
+      footerHint = t("moveRoom.movingSame", { number: target.number });
+    } else if (rateDelta > 0) {
+      footerHint =
+        nights === 1
+          ? t("moveRoom.movingAdds", {
+              number: target.number,
+              amount: formatCurrency(Math.abs(rateDelta)),
+              nights,
+            })
+          : t("moveRoom.movingAdds_other", {
+              number: target.number,
+              amount: formatCurrency(Math.abs(rateDelta)),
+              nights,
+            });
+    } else {
+      footerHint =
+        nights === 1
+          ? t("moveRoom.movingSaves", {
+              number: target.number,
+              amount: formatCurrency(Math.abs(rateDelta)),
+              nights,
+            })
+          : t("moveRoom.movingSaves_other", {
+              number: target.number,
+              amount: formatCurrency(Math.abs(rateDelta)),
+              nights,
+            });
     }
   }
 
@@ -83,7 +122,7 @@ function MoveRoomBody({
     <div className="flex max-h-[90vh] flex-col">
       <div className="border-b border-gray-200 px-5 py-4 pr-16 dark:border-gray-800 sm:px-6 sm:pr-20">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white/90">
-          Move room
+          {t("moveRoom.title")}
         </h3>
         <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
           {reservation.guest_name} ·{" "}
@@ -96,7 +135,7 @@ function MoveRoomBody({
             month: "short",
             day: "numeric",
           })}{" "}
-          · currently {current ? `Room ${current.number}` : "unallocated"}
+          · {t("moveRoom.currently", { room: currentRoomLabel })}
         </p>
       </div>
 
@@ -105,7 +144,7 @@ function MoveRoomBody({
 
         {candidates.length === 0 ? (
           <p className="py-10 text-center text-theme-sm text-gray-500">
-            No other room is free for these dates.
+            {t("moveRoom.noRooms")}
           </p>
         ) : (
           candidates.map((room) => {
@@ -125,11 +164,14 @@ function MoveRoomBody({
               >
                 <div>
                   <div className="text-theme-sm font-semibold text-gray-800 dark:text-white/90">
-                    Room {room.number}
+                    {t("moveRoom.roomLabel", { number: room.number })}
                   </div>
                   <div className="text-theme-xs text-gray-500 dark:text-gray-400">
-                    {typeLabel(room.type)} · floor {room.floor} ·{" "}
-                    {formatCurrency(room.rate)}/night
+                    {t("moveRoom.roomMeta", {
+                      type: typeLabel(room.type),
+                      floor: room.floor,
+                      rate: formatCurrency(room.rate),
+                    })}
                   </div>
                 </div>
                 <span
@@ -142,7 +184,7 @@ function MoveRoomBody({
                   }`}
                 >
                   {delta === 0
-                    ? "Same rate"
+                    ? t("moveRoom.sameRate")
                     : `${delta > 0 ? "+" : "−"}${formatCurrency(Math.abs(delta))}`}
                 </span>
               </button>
@@ -153,26 +195,18 @@ function MoveRoomBody({
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
         <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-          {target
-            ? rateDelta === 0
-              ? `Moving to Room ${target.number} keeps the stay total unchanged.`
-              : `Moving to Room ${target.number} ${
-                  rateDelta > 0 ? "adds" : "saves"
-                } ${formatCurrency(Math.abs(rateDelta))} over ${nights} night${
-                  nights === 1 ? "" : "s"
-                }.`
-            : "Any active key card is revoked after a move."}
+          {footerHint}
         </span>
         <div className="flex items-center gap-3">
           <Button size="sm" variant="outline" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             size="sm"
             disabled={!targetId || saving}
             onClick={() => void move()}
           >
-            {saving ? "Moving…" : "Move room"}
+            {saving ? t("moveRoom.moving") : t("moveRoom.confirm")}
           </Button>
         </div>
       </div>

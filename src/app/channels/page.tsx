@@ -14,6 +14,7 @@ import { BoltIcon, MoreDotIcon, PlugInIcon } from "@/icons";
 import { api } from "@/lib/api";
 import type { Channel, ChannelStatus } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
+import { useT } from "@/context/LocaleContext";
 
 type Tab = "mine" | "all";
 type StatusFilter = "all" | ChannelStatus;
@@ -144,6 +145,7 @@ function ChannelRow({
 }
 
 export default function ChannelsPage() {
+  const t = useT();
   const { channels, error, mutate } = useHotelData();
 
   const [tab, setTab] = useState<Tab>("mine");
@@ -207,8 +209,8 @@ export default function ChannelsPage() {
   return (
     <PageShell>
       <PageHeader
-        title="Channels"
-        description="Manage OTA connections, sync settings, and rate mappings."
+        title={t("channels.title")}
+        description={t("channels.description")}
       />
 
       {error && <Alert>{error}</Alert>}

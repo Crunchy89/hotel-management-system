@@ -42,7 +42,7 @@ import type {
 import { folioBalance, folioPaymentsNet, stayTotal } from "@/lib/folio";
 import { renderMessageTemplate } from "@/lib/messaging";
 
-const STORAGE_KEY = "hms-hotel-data-v3";
+const STORAGE_KEY = "hms-hotel-data-v4";
 
 type StoreData = {
   rooms: Room[];
@@ -108,6 +108,9 @@ const BED_SIZES = new Set<BedSize>([
 function defaultsForRoomTypeSlug(slug: string): {
   bed_size: BedSize;
   amenities: RoomTypeAmenities;
+  max_adults: number;
+  max_children: number;
+  max_infants: number;
 } {
   if (slug === "suite" || slug === "family") {
     return {
@@ -122,6 +125,9 @@ function defaultsForRoomTypeSlug(slug: string): {
         hairdryer: true,
         desk: true,
       },
+      max_adults: 3,
+      max_children: 2,
+      max_infants: 2,
     };
   }
   if (slug === "deluxe") {
@@ -137,6 +143,9 @@ function defaultsForRoomTypeSlug(slug: string): {
         hairdryer: true,
         desk: true,
       },
+      max_adults: 2,
+      max_children: 2,
+      max_infants: 1,
     };
   }
   if (slug === "twin") {
@@ -152,6 +161,9 @@ function defaultsForRoomTypeSlug(slug: string): {
         hairdryer: true,
         desk: false,
       },
+      max_adults: 2,
+      max_children: 0,
+      max_infants: 0,
     };
   }
   return {
@@ -166,7 +178,16 @@ function defaultsForRoomTypeSlug(slug: string): {
       hairdryer: false,
       desk: false,
     },
+    max_adults: 2,
+    max_children: 1,
+    max_infants: 1,
   };
+}
+
+function clampOccupancy(value: unknown, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.min(20, Math.floor(n));
 }
 
 function mergeAmenities(
@@ -214,6 +235,9 @@ function normalizeRoomType(
     sort_order: raw.sort_order ?? sort_order,
     bed_size: normalizeBedSize(raw.bed_size, defaults.bed_size),
     amenities: normalizeAmenities(raw.amenities, defaults.amenities),
+    max_adults: clampOccupancy(raw.max_adults, defaults.max_adults),
+    max_children: clampOccupancy(raw.max_children, defaults.max_children),
+    max_infants: clampOccupancy(raw.max_infants, defaults.max_infants),
   };
 }
 
@@ -269,7 +293,7 @@ function normalizeData(raw: Partial<StoreData>): StoreData {
 
 function avgRateForType(rooms: Room[], typeSlug: string): number {
   const typed = rooms.filter((r) => r.type === typeSlug);
-  if (typed.length === 0) return 100;
+  if (typed.length === 0) return 1_000_000;
   return Math.round(typed.reduce((s, r) => s + r.rate, 0) / typed.length);
 }
 
@@ -770,19 +794,19 @@ function offsetDate(days: number): string {
 }
 
 const ROOM_SEED: Array<[string, string, number, number, string]> = [
-  // number, type, floor, rate, status
-  ["101", "standard", 1, 120, "occupied"],
-  ["102", "standard", 1, 120, "cleaning"],
-  ["103", "standard", 1, 130, "occupied"],
-  ["104", "standard", 1, 130, "available"],
-  ["105", "twin", 1, 150, "occupied"],
-  ["201", "deluxe", 2, 195, "occupied"],
-  ["202", "deluxe", 2, 195, "available"],
-  ["203", "deluxe", 2, 210, "occupied"],
-  ["204", "deluxe", 2, 210, "available"],
-  ["205", "family", 2, 260, "occupied"],
-  ["301", "suite", 3, 340, "cleaning"],
-  ["302", "suite", 3, 380, "maintenance"],
+  // number, type, floor, rate (IDR), status
+  ["101", "standard", 1, 1_200_000, "occupied"],
+  ["102", "standard", 1, 1_200_000, "cleaning"],
+  ["103", "standard", 1, 1_300_000, "occupied"],
+  ["104", "standard", 1, 1_300_000, "available"],
+  ["105", "twin", 1, 1_500_000, "occupied"],
+  ["201", "deluxe", 2, 1_950_000, "occupied"],
+  ["202", "deluxe", 2, 1_950_000, "available"],
+  ["203", "deluxe", 2, 2_100_000, "occupied"],
+  ["204", "deluxe", 2, 2_100_000, "available"],
+  ["205", "family", 2, 2_600_000, "occupied"],
+  ["301", "suite", 3, 3_400_000, "cleaning"],
+  ["302", "suite", 3, 3_800_000, "maintenance"],
 ];
 
 const GUEST_SEED: Array<[string, string, string, string]> = [
@@ -973,10 +997,7 @@ function read(): StoreData {
   if (typeof window === "undefined") return EMPTY_DATA;
   if (cache) return cache;
 
-  let raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    raw = window.localStorage.getItem("hms-hotel-data-v2");
-  }
+  const raw = window.localStorage.getItem(STORAGE_KEY);
   if (raw) {
     try {
       cache = normalizeData(JSON.parse(raw) as Partial<StoreData>);
@@ -1056,15 +1077,25 @@ export function createRoomType(input: CreateRoomTypeInput): RoomTypeRecord {
         ? Math.max(...data.room_types.map((t) => t.sort_order)) + 1
         : 0);
 
+    const defaults = defaultsForRoomTypeSlug(slug);
     const record: RoomTypeRecord = {
       id: uid(),
       slug,
       label,
       sort_order,
-      bed_size: input.bed_size ?? defaultsForRoomTypeSlug(slug).bed_size,
-      amenities: mergeAmenities(
-        defaultsForRoomTypeSlug(slug).amenities,
-        input.amenities,
+      bed_size: input.bed_size ?? defaults.bed_size,
+      amenities: mergeAmenities(defaults.amenities, input.amenities),
+      max_adults: clampOccupancy(
+        input.max_adults ?? defaults.max_adults,
+        defaults.max_adults,
+      ),
+      max_children: clampOccupancy(
+        input.max_children ?? defaults.max_children,
+        defaults.max_children,
+      ),
+      max_infants: clampOccupancy(
+        input.max_infants ?? defaults.max_infants,
+        defaults.max_infants,
       ),
     };
     data.room_types.push(record);
@@ -1092,6 +1123,18 @@ export function updateRoomType(input: UpdateRoomTypeInput): RoomTypeRecord {
       amenities: input.amenities
         ? mergeAmenities(current.amenities, input.amenities)
         : current.amenities,
+      max_adults:
+        input.max_adults != null
+          ? clampOccupancy(input.max_adults, current.max_adults)
+          : current.max_adults,
+      max_children:
+        input.max_children != null
+          ? clampOccupancy(input.max_children, current.max_children)
+          : current.max_children,
+      max_infants:
+        input.max_infants != null
+          ? clampOccupancy(input.max_infants, current.max_infants)
+          : current.max_infants,
     };
     data.room_types[idx] = record;
     return record;

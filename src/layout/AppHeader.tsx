@@ -3,15 +3,18 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import AccountMenu from "@/components/layout/AccountMenu";
+import { LocaleToggleButton } from "@/components/common/LocaleToggleButton";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
-import { routeLabel, routeSection } from "@/lib/navigation";
+import { useLocale } from "@/context/LocaleContext";
+import { routeLabelKey, routeSectionKey } from "@/lib/navigation";
 import { useSidebar } from "@/context/SidebarContext";
 
 const AppHeader: React.FC = () => {
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const { t } = useLocale();
   const pathname = usePathname();
-  const section = routeSection(pathname);
-  const page = routeLabel(pathname);
+  const section = t(routeSectionKey(pathname));
+  const page = t(routeLabelKey(pathname));
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -29,7 +32,7 @@ const AppHeader: React.FC = () => {
             type="button"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.04] lg:h-11 lg:w-11"
             onClick={handleToggle}
-            aria-label="Toggle sidebar"
+            aria-label={t("nav.toggleSidebar")}
           >
             {isMobileOpen ? (
               <svg
@@ -65,7 +68,7 @@ const AppHeader: React.FC = () => {
           </button>
 
           <nav
-            aria-label="Breadcrumb"
+            aria-label={t("nav.breadcrumb")}
             className="hidden min-w-0 items-center gap-2 text-theme-sm sm:flex"
           >
             <span className="shrink-0 font-medium text-gray-400 dark:text-gray-500">
@@ -79,6 +82,7 @@ const AppHeader: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <LocaleToggleButton />
           <ThemeToggleButton />
           <div className="hidden h-6 w-px bg-gray-200 dark:bg-gray-800 sm:block" />
           <AccountMenu />

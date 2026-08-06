@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "@/context/SidebarContext";
+import { useT } from "@/context/LocaleContext";
 import {
   isActivePath,
   NAV_SECTIONS,
@@ -56,9 +57,11 @@ function NavBullet({ active }: { active: boolean }) {
 function NavLink({
   item,
   active,
+  label,
 }: {
   item: NavItem;
   active: boolean;
+  label: string;
 }) {
   return (
     <Link
@@ -70,7 +73,7 @@ function NavLink({
       }`}
     >
       <NavBullet active={active} />
-      <span className="leading-snug">{item.name}</span>
+      <span className="leading-snug">{label}</span>
     </Link>
   );
 }
@@ -78,6 +81,7 @@ function NavLink({
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const t = useT();
 
   const isActive = useCallback(
     (path: string) => isActivePath(pathname, path),
@@ -134,7 +138,11 @@ const AppSidebar: React.FC = () => {
             <ul className="mb-2 flex flex-col gap-0.5 border-b border-gray-200 pb-3 dark:border-gray-800">
               {TOP_NAV_ITEMS.map((item) => (
                 <li key={item.path}>
-                  <NavLink item={item} active={isActive(item.path)} />
+                  <NavLink
+                    item={item}
+                    active={isActive(item.path)}
+                    label={t(item.labelKey)}
+                  />
                 </li>
               ))}
             </ul>
@@ -146,7 +154,7 @@ const AppSidebar: React.FC = () => {
                 <li key={item.path}>
                   <Link
                     href={item.path}
-                    title={item.name}
+                    title={t(item.labelKey)}
                     className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
                       isActive(item.path)
                         ? "bg-gray-200 dark:bg-white/[0.08]"
@@ -176,7 +184,7 @@ const AppSidebar: React.FC = () => {
                   {showLabels ? (
                     <>
                       <span className="text-theme-sm font-semibold text-gray-800 dark:text-white/90">
-                        {section.title}
+                        {t(section.titleKey)}
                       </span>
                       <ChevronIcon open={isOpen} />
                     </>
@@ -192,7 +200,11 @@ const AppSidebar: React.FC = () => {
 
                       return (
                         <li key={item.path}>
-                          <NavLink item={item} active={active} />
+                          <NavLink
+                            item={item}
+                            active={active}
+                            label={t(item.labelKey)}
+                          />
                         </li>
                       );
                     })}

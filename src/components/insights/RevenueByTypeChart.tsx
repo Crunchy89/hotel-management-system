@@ -3,6 +3,7 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
+import { formatCurrency } from "@/lib/metrics";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
@@ -34,7 +35,7 @@ const RevenueByTypeChart: React.FC<RevenueByTypeChartProps> = ({ data }) => {
       categories: data.map((d) => d.type),
       axisBorder: { show: false },
       axisTicks: { show: false },
-      labels: { formatter: (val: string) => `$${Math.round(Number(val))}` },
+      labels: { formatter: (val: string) => formatCurrency(Number(val)) },
     },
     yaxis: {
       labels: {
@@ -44,7 +45,7 @@ const RevenueByTypeChart: React.FC<RevenueByTypeChartProps> = ({ data }) => {
     grid: { xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
     legend: { show: false },
     tooltip: {
-      y: { formatter: (val: number) => `$${Math.round(val)}` },
+      y: { formatter: (val: number) => formatCurrency(val) },
     },
   };
 

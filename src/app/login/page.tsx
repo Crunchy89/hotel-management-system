@@ -2,12 +2,15 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LocaleToggleButton } from "@/components/common/LocaleToggleButton";
 import { Alert, Field, inputClass } from "@/components/form";
 import Button from "@/components/ui/button/Button";
 import { useAuth } from "@/context/AuthContext";
+import { useT } from "@/context/LocaleContext";
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
+  const t = useT();
   const router = useRouter();
   const [email, setEmail] = useState("reception@hmshotel.com");
   const [password, setPassword] = useState("demo");
@@ -22,7 +25,7 @@ export default function LoginPage() {
   if (isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 text-sm text-gray-500 dark:bg-gray-900">
-        Signing you in…
+        {t("login.signingIn")}
       </div>
     );
   }
@@ -33,7 +36,7 @@ export default function LoginPage() {
     if (ok) {
       router.replace("/");
     } else {
-      setError("Enter your email and password to sign in.");
+      setError(t("login.error"));
     }
   }
 
@@ -44,20 +47,21 @@ export default function LoginPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
             H
           </span>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-semibold text-gray-900 dark:text-white/90">
-              HMS Hotel
+              {t("login.title")}
             </h1>
             <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-              Staff sign in
+              {t("login.subtitle")}
             </p>
           </div>
+          <LocaleToggleButton />
         </div>
 
         {error && <Alert>{error}</Alert>}
 
         <form onSubmit={onSubmit} className="space-y-4">
-          <Field label="Email">
+          <Field label={t("common.email")}>
             <input
               type="email"
               className={inputClass}
@@ -67,7 +71,7 @@ export default function LoginPage() {
               required
             />
           </Field>
-          <Field label="Password">
+          <Field label={t("common.password")}>
             <input
               type="password"
               className={inputClass}
@@ -78,7 +82,7 @@ export default function LoginPage() {
             />
           </Field>
           <Button type="submit" className="w-full">
-            Sign in
+            {t("login.submit")}
           </Button>
         </form>
 

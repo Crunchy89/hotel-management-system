@@ -13,6 +13,7 @@ import {
 } from "@/lib/metrics";
 import type { Reservation, Room, RoomTypeRecord } from "@/lib/types";
 import { ChevronDownIcon, PencilIcon, PlusIcon } from "@/icons";
+import { useT } from "@/context/LocaleContext";
 
 const ROOM_COL = 260;
 const ROW_H = 56;
@@ -156,6 +157,7 @@ const TapeChart: React.FC<TapeChartProps> = ({
   onAddRoomType,
   onEditRoomType,
 }) => {
+  const t = useT();
   const today = todayISO();
   const dates = useMemo(() => dateRange(start, days), [start, days]);
   const end = addDays(start, days);
@@ -296,12 +298,12 @@ const TapeChart: React.FC<TapeChartProps> = ({
           style={{ gridColumn: 1, gridRow: 1 }}
         >
           <span className="text-theme-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-            Room type
+            {t("reservations.roomType")}
           </span>
           <button
             type="button"
             onClick={onAddRoomType}
-            aria-label="Add room type"
+            aria-label={t("tape.addRoomType")}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-200 hover:text-brand-600 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-brand-400"
           >
             <PlusIcon className="h-3.5 w-3.5" />
@@ -346,18 +348,22 @@ const TapeChart: React.FC<TapeChartProps> = ({
           style={{ gridColumn: 1, gridRow: 2 }}
         >
           <span className="text-theme-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-            Rooms available
+            {t("reservations.roomsAvailable")}
           </span>
         </div>
         {dates.map((date, i) => {
           const free = availabilityByDate[i] ?? 0;
           const soldOut = free === 0;
           const tight = !soldOut && free <= 2;
+          const freeTitle =
+            free === 1
+              ? t("tape.roomsFree", { count: free, date })
+              : t("tape.roomsFree_other", { count: free, date });
 
           return (
             <div
               key={`avail-${date}`}
-              title={`${free} room${free === 1 ? "" : "s"} free on ${date}`}
+              title={freeTitle}
               className={`flex items-center justify-center border-b border-r border-gray-200 text-theme-xs font-semibold tabular-nums dark:border-gray-800 ${
                 soldOut
                   ? "bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400"
@@ -367,7 +373,7 @@ const TapeChart: React.FC<TapeChartProps> = ({
               }`}
               style={{ gridColumn: i + 2, gridRow: 2 }}
             >
-              {soldOut ? "Full" : free}
+              {soldOut ? t("tape.full") : free}
             </div>
           );
         })}
@@ -401,7 +407,9 @@ const TapeChart: React.FC<TapeChartProps> = ({
                       {row.type.label}
                     </div>
                     <div className="text-[10px] text-gray-400">
-                      {row.count} room{row.count === 1 ? "" : "s"}
+                      {row.count === 1
+                        ? t("tape.roomCount", { count: row.count })
+                        : t("tape.roomCount_other", { count: row.count })}
                     </div>
                   </div>
                   <button
@@ -435,7 +443,7 @@ const TapeChart: React.FC<TapeChartProps> = ({
                 >
                   <div>
                     <div className="text-theme-xs font-medium italic text-gray-500 dark:text-gray-400">
-                      Unallocated
+                      {t("reservations.unallocated")}
                     </div>
                     <div className="text-[10px] text-gray-400">{row.label}</div>
                   </div>
@@ -490,10 +498,10 @@ const TapeChart: React.FC<TapeChartProps> = ({
               >
                 <div>
                   <div className="text-theme-sm font-semibold text-gray-800 dark:text-white/90">
-                    Room {room.number}
+                    {t("tape.roomLabel", { number: room.number })}
                   </div>
                   <div className="text-theme-xs capitalize text-gray-400">
-                    {room.status.replaceAll("_", " ")}
+                    {t(`status.${room.status}`)}
                   </div>
                 </div>
                 <span className="text-theme-xs font-medium tabular-nums text-gray-500 dark:text-gray-400">

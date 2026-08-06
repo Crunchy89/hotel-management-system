@@ -26,6 +26,7 @@ import {
   TwoColumnLayout,
 } from "@/components/ui/layout";
 import { Modal } from "@/components/ui/modal";
+import { useT } from "@/context/LocaleContext";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
 import { addDays, formatDate, todayISO } from "@/lib/metrics";
@@ -84,6 +85,7 @@ function CleaningSelect({
 }
 
 export default function HousekeepingPage() {
+  const t = useT();
   const { rooms, room_types, reservations, housekeeping, error, mutate } =
     useHotelData();
 
@@ -186,8 +188,8 @@ export default function HousekeepingPage() {
   return (
     <PageShell>
       <PageHeader
-        title="Housekeeping"
-        description="Track room status, guest occupancy, and cleaning progress."
+        title={t("hk.title")}
+        description={t("hk.description")}
       />
 
       {error && <Alert>{error}</Alert>}
@@ -195,13 +197,13 @@ export default function HousekeepingPage() {
       <TwoColumnLayout
         sidebar={
           <>
-            <SidePanel title="Room types">
+            <SidePanel title={t("hk.roomTypes")}>
               <ul className="space-y-1">
                 <li>
                   <SidePanelItem
                     active={typeFilter === "all"}
                     onClick={() => setTypeFilter("all")}
-                    label="All rooms"
+                    label={t("hk.allRooms")}
                     count={summary.total}
                   />
                 </li>
@@ -219,10 +221,10 @@ export default function HousekeepingPage() {
             </SidePanel>
 
             <StatGrid cols={2}>
-              <StatTile label="Occupied" value={summary.occupied} tone="success" />
-              <StatTile label="Arrivals" value={summary.arrivals} tone="brand" />
-              <StatTile label="Vacant" value={summary.vacant} />
-              <StatTile label="To clean" value={summary.needsCleaning} tone="warning" />
+              <StatTile label={t("hk.occupied")} value={summary.occupied} tone="success" />
+              <StatTile label={t("hk.arrivals")} value={summary.arrivals} tone="brand" />
+              <StatTile label={t("hk.vacant")} value={summary.vacant} />
+              <StatTile label={t("hk.toClean")} value={summary.needsCleaning} tone="warning" />
             </StatGrid>
           </>
         }
@@ -232,16 +234,16 @@ export default function HousekeepingPage() {
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    View report for
+                    {t("hk.viewReportFor")}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {(
                       [
-                        ["today", "Today"],
-                        ["tomorrow", "Tomorrow"],
-                        ["custom", "Pick date"],
+                        ["today", "hk.today"],
+                        ["tomorrow", "hk.tomorrow"],
+                        ["custom", "hk.pickDate"],
                       ] as const
-                    ).map(([mode, label]) => (
+                    ).map(([mode, labelKey]) => (
                       <button
                         key={mode}
                         type="button"
@@ -252,7 +254,7 @@ export default function HousekeepingPage() {
                             : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
                         }`}
                       >
-                        {label}
+                        {t(labelKey)}
                       </button>
                     ))}
                   </div>
@@ -270,12 +272,12 @@ export default function HousekeepingPage() {
                   variant="outline"
                   onClick={() => printHousekeepingReport(filteredRows, dateLabel)}
                 >
-                  Print report
+                  {t("hk.printReport")}
                 </Button>
               </div>
 
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <FilterField label="Room status">
+                <FilterField label={t("hk.roomStatus")}>
                   <select
                     className={selectClass}
                     value={occupancyFilter}
@@ -288,7 +290,7 @@ export default function HousekeepingPage() {
                     ))}
                   </select>
                 </FilterField>
-                <FilterField label="Cleaning status">
+                <FilterField label={t("hk.cleaningStatus")}>
                   <select
                     className={selectClass}
                     value={cleaningFilter}
@@ -305,13 +307,14 @@ export default function HousekeepingPage() {
 
               {lastUpdated && (
                 <p className="mt-4 text-theme-xs text-gray-400">
-                  Last updated{" "}
-                  {new Date(lastUpdated).toLocaleString(undefined, {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
+                  {t("hk.lastUpdated", {
+                    when: new Date(lastUpdated).toLocaleString(undefined, {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }),
                   })}
                 </p>
               )}
@@ -322,8 +325,9 @@ export default function HousekeepingPage() {
                 {dateLabel}
               </p>
               <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-                {filteredRows.length} room{filteredRows.length === 1 ? "" : "s"}{" "}
-                in this view
+                {filteredRows.length === 1
+                  ? t("hk.roomsInView", { count: filteredRows.length })
+                  : t("hk.roomsInView_other", { count: filteredRows.length })}
               </p>
             </div>
 
@@ -332,12 +336,12 @@ export default function HousekeepingPage() {
                 <thead>
                   <tr className="border-b border-gray-200 bg-white dark:border-gray-800">
                     {[
-                      "Room",
-                      "Type",
-                      "Room status",
-                      "Guests",
-                      "Room notes",
-                      "Cleaning",
+                      t("hk.room"),
+                      t("common.type"),
+                      t("hk.roomStatus"),
+                      t("hk.guests"),
+                      t("hk.roomNotes"),
+                      t("hk.cleaning"),
                     ].map((col) => (
                       <th
                         key={col}
@@ -355,7 +359,7 @@ export default function HousekeepingPage() {
                         colSpan={6}
                         className="px-4 py-12 text-center text-theme-sm text-gray-500 dark:text-gray-400"
                       >
-                        No rooms match the current filters.
+                        {t("hk.noMatch")}
                       </td>
                     </tr>
                   )}
@@ -365,7 +369,7 @@ export default function HousekeepingPage() {
                       className="transition hover:bg-gray-50/70 dark:hover:bg-white/[0.02]"
                     >
                       <td className="px-4 py-3.5 text-theme-sm font-semibold text-gray-800 dark:text-white/90">
-                        Room {row.room.number}
+                        {t("tape.roomLabel", { number: row.room.number })}
                       </td>
                       <td className="px-4 py-3.5 text-theme-xs text-gray-600 dark:text-gray-400">
                         {row.typeLabel}
@@ -395,7 +399,7 @@ export default function HousekeepingPage() {
                             onClick={() => openNote(row)}
                             className="text-theme-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
                           >
-                            Add note
+                            {t("hk.addNote")}
                           </button>
                         )}
                       </td>
@@ -415,24 +419,25 @@ export default function HousekeepingPage() {
 
       <Modal isOpen={noteModal.isOpen} onClose={noteModal.closeModal} className="max-w-md p-6">
         <h4 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">
-          Room note
+          {t("hk.roomNote")}
         </h4>
         <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-          Room {noteTarget?.room.number} · {dateLabel}
+          {t("tape.roomLabel", { number: noteTarget?.room.number ?? "" })} ·{" "}
+          {dateLabel}
         </p>
         <textarea
           className={textareaClass}
           rows={4}
-          placeholder="Housekeeping instructions, special requests…"
+          placeholder={t("hk.notePlaceholder")}
           value={noteDraft}
           onChange={(e) => setNoteDraft(e.target.value)}
         />
         <div className="mt-4 flex justify-end gap-3">
           <Button size="sm" variant="outline" onClick={noteModal.closeModal}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button size="sm" onClick={() => void saveNote()}>
-            Save note
+            {t("hk.saveNote")}
           </Button>
         </div>
       </Modal>

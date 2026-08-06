@@ -27,6 +27,7 @@ import { Alert } from "@/components/form";
 import PageHeader from "@/components/common/PageHeader";
 import Button from "@/components/ui/button/Button";
 import { PageShell } from "@/components/ui/layout";
+import { useT } from "@/context/LocaleContext";
 import { useModal } from "@/hooks/useModal";
 import { api } from "@/lib/api";
 import { addDays, dayDiff, formatDate, todayISO } from "@/lib/metrics";
@@ -35,18 +36,21 @@ import { useHotelData } from "@/lib/useHotelData";
 
 type ViewMode = "7" | "14" | "month";
 
-const VIEW_MODES: { value: ViewMode; label: string }[] = [
-  { value: "7", label: "7d" },
-  { value: "14", label: "14d" },
-  { value: "month", label: "Month" },
+const VIEW_MODE_KEYS: { value: ViewMode; labelKey: string }[] = [
+  { value: "7", labelKey: "reservations.view7d" },
+  { value: "14", labelKey: "reservations.view14d" },
+  { value: "month", labelKey: "reservations.viewMonth" },
 ];
 
-const legend = [
-  { label: "Booked", className: "bg-brand-500" },
-  { label: "In house", className: "bg-success-500" },
-  { label: "Checked out", className: "bg-gray-300 dark:bg-gray-700" },
+const LEGEND_KEYS = [
+  { labelKey: "reservations.legendBooked", className: "bg-brand-500" },
+  { labelKey: "reservations.legendInHouse", className: "bg-success-500" },
   {
-    label: "Cancelled",
+    labelKey: "reservations.legendCheckedOut",
+    className: "bg-gray-300 dark:bg-gray-700",
+  },
+  {
+    labelKey: "reservations.legendCancelled",
     className: "border border-dashed border-gray-400 bg-gray-50",
   },
 ];
@@ -66,6 +70,7 @@ function daysInMonth(iso: string): number {
 }
 
 export default function ReservationsPage() {
+  const t = useT();
   const { reservations, guests, rooms, room_types, folio_lines, error, mutate } =
     useHotelData();
 
@@ -75,6 +80,9 @@ export default function ReservationsPage() {
     from: today,
     to: addDays(today, 1),
     roomType: "",
+    adults: 1,
+    children: 0,
+    infants: 0,
   });
 
   const emptyQuery: BookingQuery = { reference: "", lastName: "" };
@@ -184,7 +192,12 @@ export default function ReservationsPage() {
     createModal.openModal();
   }
 
-  function openReserve(room: Room, checkIn: string, checkOut: string) {
+  function openReserve(
+    room: Room,
+    checkIn: string,
+    checkOut: string,
+    party: { adults: number; children: number; infants: number },
+  ) {
     const nights = Math.max(0, dayDiff(checkIn, checkOut));
     availableModal.closeModal();
     openDraft({
@@ -197,6 +210,9 @@ export default function ReservationsPage() {
       room_amount: room.rate * nights,
       hold_rate: false,
       booking_source: "Offline",
+      adults: party.adults,
+      children: party.children,
+      infants: party.infants,
     });
   }
 
@@ -299,8 +315,10 @@ export default function ReservationsPage() {
       : `${formatDate(start)} – ${formatDate(addDays(start, days - 1))}`;
 
   const searchSummary = [
-    appliedQuery.reference && `code “${appliedQuery.reference}”`,
-    appliedQuery.lastName && `name “${appliedQuery.lastName}”`,
+    appliedQuery.reference &&
+      t("reservations.searchCode", { value: appliedQuery.reference }),
+    appliedQuery.lastName &&
+      t("reservations.searchName", { value: appliedQuery.lastName }),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -310,11 +328,17 @@ export default function ReservationsPage() {
     ? (reservations.find((r) => r.id === selected.id) ?? selected)
     : null;
 
+  const matchCount = filteredReservations.length;
+  const matchLabel =
+    matchCount === 1
+      ? t("reservations.match", { count: matchCount })
+      : t("reservations.match_other", { count: matchCount });
+
   return (
     <PageShell>
       <PageHeader
-        title="Reservations"
-        description="Search open rooms, book offline, and manage every stay on the calendar."
+        title={t("reservations.title")}
+        description={t("reservations.description")}
       />
 
       {error && <Alert>{error}</Alert>}
@@ -322,19 +346,21 @@ export default function ReservationsPage() {
       {justBooked && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-success-200 bg-success-50 px-5 py-4 dark:border-success-500/30 dark:bg-success-500/10">
           <p className="text-theme-sm text-success-700 dark:text-success-400">
-            Booking confirmed for {justBooked.guest_name}
-            {justBooked.reference ? ` · ${justBooked.reference}` : ""}.
+            {t("reservations.bookedConfirmedRef", {
+              name: justBooked.guest_name ?? "",
+              ref: justBooked.reference ? ` · ${justBooked.reference}` : "",
+            })}
           </p>
           <div className="flex items-center gap-3">
             <span className="text-theme-xs text-success-700/80 dark:text-success-400/80">
-              The room key is encoded at check-in.
+              {t("reservations.keyAtCheckIn")}
             </span>
             <button
               type="button"
               onClick={() => setJustBooked(null)}
               className="text-theme-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400"
             >
-              Dismiss
+              {t("common.dismiss")}
             </button>
           </div>
         </div>
@@ -342,7 +368,7 @@ export default function ReservationsPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <Button size="sm" onClick={availableModal.openModal}>
-          Find available rooms
+          {t("reservations.findAvailable")}
         </Button>
         <Button
           size="sm"
@@ -352,16 +378,18 @@ export default function ReservationsPage() {
             findModal.openModal();
           }}
         >
-          Find a booking
+          {t("reservations.findBooking")}
         </Button>
 
         {searched && (
           <span className="flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1.5 text-theme-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
-            Filtered by {searchSummary || "custom filters"}
+            {t("reservations.filteredBy", {
+              summary: searchSummary || t("reservations.customFilters"),
+            })}
             <button
               type="button"
               onClick={resetBookingSearch}
-              aria-label="Clear booking filter"
+              aria-label={t("reservations.clearFilter")}
               className="text-brand-500 hover:text-brand-700 dark:hover:text-brand-300"
             >
               ✕
@@ -373,21 +401,20 @@ export default function ReservationsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Button size="xs" variant="outline" onClick={stepBack}>
-            ‹ Prev
+            {t("reservations.prev")}
           </Button>
           <Button size="xs" variant="outline" onClick={goToday}>
-            Today
+            {t("reservations.today")}
           </Button>
           <Button size="xs" variant="outline" onClick={stepForward}>
-            Next ›
+            {t("reservations.next")}
           </Button>
           <span className="ml-1 text-theme-sm font-medium text-gray-700 dark:text-gray-300">
             {rangeLabel}
           </span>
           {searched && (
             <span className="text-theme-sm text-gray-500 dark:text-gray-400">
-              · {filteredReservations.length} match
-              {filteredReservations.length === 1 ? "" : "es"}
+              · {matchLabel}
             </span>
           )}
         </div>
@@ -400,21 +427,21 @@ export default function ReservationsPage() {
               onChange={(e) => setShowCancelled(e.target.checked)}
               className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900"
             />
-            Show cancelled
+            {t("reservations.showCancelled")}
           </label>
           <div className="hidden items-center gap-3 sm:flex">
-            {legend.map((item) => (
+            {LEGEND_KEYS.map((item) => (
               <span
-                key={item.label}
+                key={item.labelKey}
                 className="flex items-center gap-1.5 text-theme-xs text-gray-500 dark:text-gray-400"
               >
                 <span className={`h-2.5 w-2.5 rounded-full ${item.className}`} />
-                {item.label}
+                {t(item.labelKey)}
               </span>
             ))}
           </div>
           <div className="flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900">
-            {VIEW_MODES.map((mode) => (
+            {VIEW_MODE_KEYS.map((mode) => (
               <button
                 key={mode.value}
                 type="button"
@@ -425,7 +452,7 @@ export default function ReservationsPage() {
                     : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
                 }`}
               >
-                {mode.label}
+                {t(mode.labelKey)}
               </button>
             ))}
           </div>
@@ -462,6 +489,9 @@ export default function ReservationsPage() {
         checkIn={availSearch.from}
         checkOut={availSearch.to}
         roomType={availSearch.roomType}
+        adults={availSearch.adults}
+        children={availSearch.children}
+        infants={availSearch.infants}
         onChange={patchAvail}
         onReserve={openReserve}
       />

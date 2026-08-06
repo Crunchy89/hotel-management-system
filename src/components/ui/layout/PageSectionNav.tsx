@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useT } from "@/context/LocaleContext";
 import {
   isActivePath,
   NAV_SECTIONS,
@@ -17,6 +18,8 @@ function SectionNavLink({
   item: NavItem;
   active: boolean;
 }) {
+  const t = useT();
+  const label = t(item.labelKey);
   const className = `block w-full rounded-lg px-3 py-2.5 text-left text-theme-sm transition ${
     active
       ? "font-semibold text-brand-600 dark:text-brand-400"
@@ -34,20 +37,21 @@ function SectionNavLink({
             ?.scrollIntoView({ behavior: "smooth", block: "start" });
         }}
       >
-        {item.name}
+        {label}
       </button>
     );
   }
 
   return (
     <Link href={item.path} className={className}>
-      {item.name}
+      {label}
     </Link>
   );
 }
 
 export function PageSectionNav({ items }: { items?: NavItem[] }) {
   const pathname = usePathname();
+  const t = useT();
   const sectionId = sectionForPath(pathname);
   const section = NAV_SECTIONS.find((s) => s.id === sectionId);
   const navItems = items ?? section?.items ?? [];
@@ -55,10 +59,10 @@ export function PageSectionNav({ items }: { items?: NavItem[] }) {
   if (!section || navItems.length === 0) return null;
 
   return (
-    <SidePanel title={section.title}>
+    <SidePanel title={t(section.titleKey)}>
       <ul className="space-y-1">
         {navItems.map((item) => (
-          <li key={`${item.path}-${item.name}`}>
+          <li key={`${item.path}-${item.labelKey}`}>
             <SectionNavLink
               item={item}
               active={

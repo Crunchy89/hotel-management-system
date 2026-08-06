@@ -1,61 +1,64 @@
 export type NavItem = {
-  name: string;
+  /** i18n message key, e.g. nav.dashboard */
+  labelKey: string;
   path: string;
 };
 
 export type NavSection = {
   id: string;
-  title: string;
+  titleKey: string;
   items: NavItem[];
 };
 
 export const TOP_NAV_ITEMS: NavItem[] = [
-  { name: "Dashboard", path: "/" },
-  { name: "Insights", path: "/insights" },
-  { name: "Reservations", path: "/reservations" },
-  { name: "Manage Room", path: "/rooms" },
-  { name: "Rooms & Prices", path: "/rates" },
-  { name: "Guests", path: "/guests" },
-  { name: "Guest messages", path: "/messages" },
-  { name: "Client chat", path: "/chat" },
-  { name: "Housekeeping", path: "/housekeeping" },
+  { labelKey: "nav.dashboard", path: "/" },
+  { labelKey: "nav.insights", path: "/insights" },
+  { labelKey: "nav.reservations", path: "/reservations" },
+  { labelKey: "nav.manageRoom", path: "/rooms" },
+  { labelKey: "nav.roomsPrices", path: "/rates" },
+  { labelKey: "nav.guests", path: "/guests" },
+  { labelKey: "nav.guestMessages", path: "/messages" },
+  { labelKey: "nav.clientChat", path: "/chat" },
+  { labelKey: "nav.housekeeping", path: "/housekeeping" },
 ];
 
 export const NAV_SECTIONS: NavSection[] = [
   {
     id: "report",
-    title: "Report",
+    titleKey: "nav.report",
     items: [
-      { name: "Check-In", path: "/check-in" },
-      { name: "Booking activity", path: "/booking-activity" },
+      { labelKey: "nav.checkIn", path: "/check-in" },
+      { labelKey: "nav.bookingActivity", path: "/booking-activity" },
     ],
   },
   {
     id: "channel-manager",
-    title: "Channel manager",
+    titleKey: "nav.channelManager",
     items: [
-      { name: "Channel manager", path: "/channel-manager" },
-      { name: "Channels", path: "/channels" },
-      { name: "Yield Rules", path: "/yield-rules" },
+      { labelKey: "nav.channelManager", path: "/channel-manager" },
+      { labelKey: "nav.channels", path: "/channels" },
+      { labelKey: "nav.yieldRules", path: "/yield-rules" },
     ],
   },
 ];
 
-export const ROUTE_LABELS: Record<string, string> = {
-  "/": "Dashboard",
-  "/reservations": "Reservations",
-  "/calendar": "Reservations",
-  "/rooms": "Manage Room",
-  "/housekeeping": "Housekeeping",
-  "/rates": "Rooms & Prices",
-  "/guests": "Guests",
-  "/channels": "Channels",
-  "/channel-manager": "Channel manager",
-  "/yield-rules": "Yield Rules",
-  "/insights": "Insights",
-  "/messages": "Guest messages",
-  "/chat": "Client chat",
-  "/booking-activity": "Booking activity",
+export const ROUTE_LABEL_KEYS: Record<string, string> = {
+  "/": "nav.dashboard",
+  "/reservations": "nav.reservations",
+  "/calendar": "nav.reservations",
+  "/rooms": "nav.manageRoom",
+  "/housekeeping": "nav.housekeeping",
+  "/rates": "nav.roomsPrices",
+  "/guests": "nav.guests",
+  "/channels": "nav.channels",
+  "/channel-manager": "nav.channelManager",
+  "/yield-rules": "nav.yieldRules",
+  "/insights": "nav.insights",
+  "/messages": "nav.guestMessages",
+  "/chat": "nav.clientChat",
+  "/booking-activity": "nav.bookingActivity",
+  "/check-in": "nav.checkIn",
+  "/login": "login.title",
 };
 
 export function isActivePath(pathname: string, path: string): boolean {
@@ -77,33 +80,77 @@ export function sectionItemsForPath(pathname: string): NavItem[] | null {
   return section && section.items.length > 1 ? section.items : null;
 }
 
-export function routeLabel(pathname: string): string {
-  if (ROUTE_LABELS[pathname]) return ROUTE_LABELS[pathname]!;
-  for (const [path, label] of Object.entries(ROUTE_LABELS)) {
-    if (path !== "/" && pathname.startsWith(path)) return label;
+export function routeLabelKey(pathname: string): string {
+  if (ROUTE_LABEL_KEYS[pathname]) return ROUTE_LABEL_KEYS[pathname]!;
+  for (const [path, key] of Object.entries(ROUTE_LABEL_KEYS)) {
+    if (path !== "/" && pathname.startsWith(path)) return key;
   }
-  return "HMS Hotel";
+  return "nav.hmsHotel";
 }
 
-export function routeSection(pathname: string): string {
-  if (pathname === "/") return "Dashboard";
-  if (pathname.startsWith("/insights")) return "Insights";
+export function routeSectionKey(pathname: string): string {
+  if (pathname === "/") return "nav.dashboard";
+  if (pathname.startsWith("/insights")) return "nav.insights";
   if (pathname.startsWith("/reservations") || pathname.startsWith("/calendar")) {
-    return "Reservations";
+    return "nav.reservations";
   }
-  if (pathname.startsWith("/rooms")) return "Manage Room";
-  if (pathname.startsWith("/rates")) return "Rooms & Prices";
-  if (pathname.startsWith("/guests")) return "Guests";
-  if (pathname.startsWith("/messages")) return "Guest messages";
-  if (pathname.startsWith("/chat")) return "Client chat";
-  if (pathname.startsWith("/housekeeping")) return "Housekeeping";
-  if (pathname.startsWith("/check-in")) return "Report";
+  if (pathname.startsWith("/rooms")) return "nav.manageRoom";
+  if (pathname.startsWith("/rates")) return "nav.roomsPrices";
+  if (pathname.startsWith("/guests")) return "nav.guests";
+  if (pathname.startsWith("/messages")) return "nav.guestMessages";
+  if (pathname.startsWith("/chat")) return "nav.clientChat";
+  if (pathname.startsWith("/housekeeping")) return "nav.housekeeping";
+  if (pathname.startsWith("/check-in") || pathname.startsWith("/booking-activity")) {
+    return "nav.report";
+  }
 
   for (const section of NAV_SECTIONS) {
     if (section.items.some((item) => isActivePath(pathname, item.path))) {
-      return section.title;
+      return section.titleKey;
     }
   }
 
-  return "Report";
+  return "nav.report";
+}
+
+/** @deprecated Prefer routeLabelKey + t() */
+export function routeLabel(pathname: string): string {
+  const key = routeLabelKey(pathname);
+  const fallback: Record<string, string> = {
+    "nav.dashboard": "Dashboard",
+    "nav.reservations": "Reservations",
+    "nav.manageRoom": "Manage Room",
+    "nav.housekeeping": "Housekeeping",
+    "nav.roomsPrices": "Rooms & Prices",
+    "nav.guests": "Guests",
+    "nav.channels": "Channels",
+    "nav.channelManager": "Channel manager",
+    "nav.yieldRules": "Yield Rules",
+    "nav.insights": "Insights",
+    "nav.guestMessages": "Guest messages",
+    "nav.clientChat": "Client chat",
+    "nav.bookingActivity": "Booking activity",
+    "nav.checkIn": "Check-In",
+    "nav.hmsHotel": "HMS Hotel",
+  };
+  return fallback[key] ?? "HMS Hotel";
+}
+
+/** @deprecated Prefer routeSectionKey + t() */
+export function routeSection(pathname: string): string {
+  const key = routeSectionKey(pathname);
+  const fallback: Record<string, string> = {
+    "nav.dashboard": "Dashboard",
+    "nav.insights": "Insights",
+    "nav.reservations": "Reservations",
+    "nav.manageRoom": "Manage Room",
+    "nav.roomsPrices": "Rooms & Prices",
+    "nav.guests": "Guests",
+    "nav.guestMessages": "Guest messages",
+    "nav.clientChat": "Client chat",
+    "nav.housekeeping": "Housekeeping",
+    "nav.report": "Report",
+    "nav.channelManager": "Channel manager",
+  };
+  return fallback[key] ?? "Report";
 }

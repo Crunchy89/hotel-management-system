@@ -29,6 +29,7 @@ import { api } from "@/lib/api";
 import { addDays, formatCurrency, todayISO } from "@/lib/metrics";
 import type { BulkChannelRateUpdateInput } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
+import { useT } from "@/context/LocaleContext";
 
 function SyncBadge({ status }: { status: "pending" | "synced" | "error" }) {
   const styles = {
@@ -51,6 +52,7 @@ function SyncBadge({ status }: { status: "pending" | "synced" | "error" }) {
 }
 
 export default function ChannelManagerPage() {
+  const t = useT();
   const {
     channels,
     channel_rate_entries,
@@ -164,8 +166,8 @@ export default function ChannelManagerPage() {
     return (
       <PageShell>
         <PageHeader
-          title="Channel manager"
-          description="Update rates and availability for Agoda, Booking.com, and other OTAs."
+          title={t("channelManager.title")}
+          description={t("channelManager.description")}
         />
         {error && <Alert>{error}</Alert>}
         <SurfaceCard className="p-8 text-center">
@@ -180,8 +182,8 @@ export default function ChannelManagerPage() {
   return (
     <PageShell>
       <PageHeader
-        title="Channel manager"
-        description="Update room availability and prices per OTA, then push changes to Agoda, Booking.com, Expedia, and more."
+        title={t("channelManager.title")}
+        description={t("channelManager.description")}
         action={
           <Button
             size="sm"

@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageShell } from "@/components/ui/layout";
+import { useT } from "@/context/LocaleContext";
 import {
   addDays,
   dailyMetrics,
@@ -32,6 +33,7 @@ const headerCell =
 const bodyCell = "px-5 py-4 text-theme-sm text-gray-700 dark:text-gray-300";
 
 export default function InsightsPage() {
+  const t = useT();
   const { rooms, reservations } = useHotelData();
   const [direction, setDirection] = useState<"past" | "upcoming">("upcoming");
   const [length, setLength] = useState(30);
@@ -68,8 +70,8 @@ export default function InsightsPage() {
   return (
     <PageShell>
       <PageHeader
-        title="Insights"
-        description="Occupancy and revenue performance across your property."
+        title={t("insights.title")}
+        description={t("insights.description")}
         action={
           <div className="flex flex-wrap gap-2">
             <div className="flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900">
@@ -78,13 +80,13 @@ export default function InsightsPage() {
                   key={d}
                   type="button"
                   onClick={() => setDirection(d)}
-                  className={`rounded-md px-4 py-2 text-theme-sm font-medium capitalize transition ${
+                  className={`rounded-md px-4 py-2 text-theme-sm font-medium transition ${
                     direction === d
                       ? "bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
                   }`}
                 >
-                  {d}
+                  {t(d === "past" ? "insights.past" : "insights.upcoming")}
                 </button>
               ))}
             </div>
@@ -111,38 +113,44 @@ export default function InsightsPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
         <MetricCard
-          label="Occupancy"
+          label={t("dashboard.occupancy")}
           value={`${Math.round(summary.occupancyRate * 100)}%`}
-          hint={`${summary.roomNights} of ${summary.availableRoomNights} room nights`}
+          hint={t("insights.roomNightsHint", {
+            sold: summary.roomNights,
+            available: summary.availableRoomNights,
+          })}
           tone="brand"
         />
         <MetricCard
-          label="Room revenue"
+          label={t("insights.roomRevenue")}
           value={formatCurrency(summary.revenue)}
-          hint={`Over ${length} days`}
+          hint={t("insights.overDays", { length })}
           tone="success"
         />
         <MetricCard
-          label="ADR"
+          label={t("insights.adr")}
           value={formatCurrency(summary.adr)}
-          hint="Average daily rate per sold room"
+          hint={t("insights.adrHint")}
           tone="info"
         />
         <MetricCard
-          label="RevPAR"
+          label={t("insights.revpar")}
           value={formatCurrency(summary.revpar)}
-          hint="Revenue per available room"
+          hint={t("insights.revparHint")}
           tone="warning"
         />
       </div>
 
       <div className="mt-4 md:mt-6">
         <ComponentCard
-          title="Occupancy trend"
+          title={t("insights.occupancyTrend")}
           desc={
             bestDay
-              ? `Peak revenue day: ${bestDay.date} (${formatCurrency(bestDay.revenue)})`
-              : "No data in this period"
+              ? t("insights.peakRevenue", {
+                  date: bestDay.date,
+                  amount: formatCurrency(bestDay.revenue),
+                })
+              : t("insights.noData")
           }
         >
           <OccupancyTrendChart days={days} />
@@ -150,29 +158,32 @@ export default function InsightsPage() {
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-2">
-        <ComponentCard title="Revenue by room type" desc="Room nights sold × rate">
+        <ComponentCard
+          title={t("insights.revenueByType")}
+          desc={t("insights.revenueByTypeDesc")}
+        >
           <RevenueByTypeChart data={byType} />
         </ComponentCard>
 
         <ComponentCard
-          title="Room type performance"
-          desc="Contribution to total room revenue"
+          title={t("insights.typePerformance")}
+          desc={t("insights.typePerformanceDesc")}
         >
           <div className="custom-scrollbar overflow-x-auto">
             <Table>
               <TableHeader className="border-b border-gray-100 dark:border-gray-800">
                 <TableRow>
                   <TableCell isHeader className={headerCell}>
-                    Type
+                    {t("common.type")}
                   </TableCell>
                   <TableCell isHeader className={headerCell}>
-                    Room nights
+                    {t("insights.roomNights")}
                   </TableCell>
                   <TableCell isHeader className={headerCell}>
-                    Revenue
+                    {t("dashboard.revenue")}
                   </TableCell>
                   <TableCell isHeader className={headerCell}>
-                    Share
+                    {t("insights.share")}
                   </TableCell>
                 </TableRow>
               </TableHeader>
@@ -183,7 +194,7 @@ export default function InsightsPage() {
                       colSpan={4}
                       className="px-5 py-8 text-center text-theme-sm text-gray-500 dark:text-gray-400"
                     >
-                      No rooms configured.
+                      {t("insights.noRooms")}
                     </TableCell>
                   </TableRow>
                 )}

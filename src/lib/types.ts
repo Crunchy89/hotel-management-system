@@ -74,6 +74,12 @@ export interface RoomTypeRecord {
   sort_order: number;
   bed_size: BedSize;
   amenities: RoomTypeAmenities;
+  /** Max adults this room type can sleep. */
+  max_adults: number;
+  /** Max children (age typically 2–12). */
+  max_children: number;
+  /** Max infants (usually in a crib; often not counted toward bed capacity). */
+  max_infants: number;
 }
 
 export interface CreateRoomTypeInput {
@@ -81,6 +87,9 @@ export interface CreateRoomTypeInput {
   sort_order?: number;
   bed_size?: BedSize;
   amenities?: Partial<RoomTypeAmenities>;
+  max_adults?: number;
+  max_children?: number;
+  max_infants?: number;
 }
 
 export interface UpdateRoomTypeInput {
@@ -89,6 +98,9 @@ export interface UpdateRoomTypeInput {
   sort_order?: number;
   bed_size?: BedSize;
   amenities?: Partial<RoomTypeAmenities>;
+  max_adults?: number;
+  max_children?: number;
+  max_infants?: number;
 }
 export type ReservationStatus =
   | "booked"

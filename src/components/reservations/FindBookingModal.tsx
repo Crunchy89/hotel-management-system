@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { tableBodyCell, tableHeaderCell } from "@/components/ui/layout";
 import { inputClass } from "@/components/form";
+import { useT } from "@/context/LocaleContext";
 import { formatDate } from "@/lib/metrics";
 import type { Reservation } from "@/lib/types";
 import type { ReservationRow } from "./reservationListUtils";
@@ -43,27 +44,29 @@ function ResultsTable({
   rows: ReservationRow[];
   onSelect: (reservation: Reservation) => void;
 }) {
+  const t = useT();
+
   return (
     <Table>
       <TableHeader className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
         <TableRow>
           <TableCell isHeader className={tableHeaderCell}>
-            Guest
+            {t("find.guest")}
           </TableCell>
           <TableCell isHeader className={tableHeaderCell}>
-            Code
+            {t("find.code")}
           </TableCell>
           <TableCell isHeader className={tableHeaderCell}>
-            Room
+            {t("find.room")}
           </TableCell>
           <TableCell isHeader className={tableHeaderCell}>
-            Stay
+            {t("find.stay")}
           </TableCell>
           <TableCell isHeader className={tableHeaderCell}>
-            Status
+            {t("find.status")}
           </TableCell>
           <TableCell isHeader className={`${tableHeaderCell} text-right`}>
-            Action
+            {t("find.action")}
           </TableCell>
         </TableRow>
       </TableHeader>
@@ -82,7 +85,7 @@ function ResultsTable({
               {row.displayReference}
             </TableCell>
             <TableCell className={tableBodyCell}>
-              {row.reservation.room_number ?? "Unallocated"}
+              {row.reservation.room_number ?? t("reservations.unallocated")}
             </TableCell>
             <TableCell className={tableBodyCell}>
               {formatDate(row.reservation.check_in)} →{" "}
@@ -93,7 +96,7 @@ function ResultsTable({
             </TableCell>
             <TableCell className={`${tableBodyCell} text-right`}>
               <Button size="sm" onClick={() => onSelect(row.reservation)}>
-                Open
+                {t("find.open")}
               </Button>
             </TableCell>
           </TableRow>
@@ -115,7 +118,12 @@ export default function FindBookingModal({
   exampleRow,
   onSelect,
 }: FindBookingModalProps) {
+  const t = useT();
   const canSearch = Boolean(query.reference.trim() || query.lastName.trim());
+  const foundLabel =
+    rows.length === 1
+      ? t("find.found", { count: rows.length })
+      : t("find.found_other", { count: rows.length });
 
   return (
     <Modal
@@ -132,31 +140,31 @@ export default function FindBookingModal({
       >
         <div className="shrink-0 border-b border-gray-200 px-5 py-4 pr-16 dark:border-gray-800 sm:px-6 sm:pr-20">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white/90">
-            Find a booking
+            {t("find.title")}
           </h3>
           <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-            Search every booked room by booking code or guest last name.
+            {t("find.description")}
           </p>
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Booking code
+                {t("find.bookingCode")}
               </label>
               <input
                 className={inputClass}
-                placeholder="e.g. BK-1042"
+                placeholder={t("find.codePlaceholder")}
                 value={query.reference}
                 onChange={(e) => onChange({ reference: e.target.value })}
               />
             </div>
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Guest last name
+                {t("find.lastName")}
               </label>
               <input
                 className={inputClass}
-                placeholder="e.g. Davis"
+                placeholder={t("find.namePlaceholder")}
                 value={query.lastName}
                 onChange={(e) => onChange({ lastName: e.target.value })}
               />
@@ -165,10 +173,10 @@ export default function FindBookingModal({
 
           <div className="mt-4 flex items-center justify-end gap-3">
             <Button size="sm" variant="outline" type="button" onClick={onReset}>
-              Reset
+              {t("find.reset")}
             </Button>
             <Button size="sm" type="submit" disabled={!canSearch}>
-              Find booking
+              {t("find.findBooking")}
             </Button>
           </div>
         </div>
@@ -178,19 +186,18 @@ export default function FindBookingModal({
             exampleRow ? (
               <>
                 <p className="px-5 pt-4 text-theme-xs text-gray-500 sm:px-6">
-                  Example result — open it to see the guest, cancel the stay, or
-                  generate a room key.
+                  {t("find.exampleHint")}
                 </p>
                 <ResultsTable rows={[exampleRow]} onSelect={onSelect} />
               </>
             ) : (
               <p className="px-5 py-10 text-center text-theme-sm text-gray-500">
-                Enter a booking code or guest last name, then press Find booking.
+                {t("find.enterHint")}
               </p>
             )
           ) : rows.length === 0 ? (
             <p className="px-5 py-10 text-center text-theme-sm text-gray-500">
-              No booking matches this search.
+              {t("find.noResults")}
             </p>
           ) : (
             <ResultsTable rows={rows} onSelect={onSelect} />
@@ -199,12 +206,10 @@ export default function FindBookingModal({
 
         <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
           <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-            {searched
-              ? `${rows.length} booking${rows.length === 1 ? "" : "s"} found`
-              : "Searches all dates, including past and cancelled stays."}
+            {searched ? foundLabel : t("find.searchAllDates")}
           </span>
           <Button size="sm" variant="outline" type="button" onClick={onClose}>
-            Close
+            {t("common.close")}
           </Button>
         </div>
       </form>

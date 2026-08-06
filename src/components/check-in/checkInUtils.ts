@@ -29,8 +29,8 @@ export const CHECK_IN_DUMMY: CheckInReportRow[] = [
     children: 0,
     infants: 0,
     extraPerson: 0,
-    outstandingBalance: 240,
-    totalAmount: 240,
+    outstandingBalance: 2_400_000,
+    totalAmount: 2_400_000,
     eta: "",
     notes: "",
   },
@@ -46,8 +46,8 @@ export const CHECK_IN_DUMMY: CheckInReportRow[] = [
     children: 0,
     infants: 0,
     extraPerson: 0,
-    outstandingBalance: 410,
-    totalAmount: 410,
+    outstandingBalance: 4_100_000,
+    totalAmount: 4_100_000,
     eta: "",
     notes: "",
   },
@@ -63,8 +63,8 @@ export const CHECK_IN_DUMMY: CheckInReportRow[] = [
     children: 0,
     infants: 0,
     extraPerson: 0,
-    outstandingBalance: 2051,
-    totalAmount: 2051,
+    outstandingBalance: 20_510_000,
+    totalAmount: 20_510_000,
     eta: "",
     notes: "",
   },
@@ -83,8 +83,8 @@ export const CHECK_OUT_DUMMY: CheckInReportRow[] = [
     children: 0,
     infants: 0,
     extraPerson: 0,
-    outstandingBalance: 384,
-    totalAmount: 384,
+    outstandingBalance: 3_840_000,
+    totalAmount: 3_840_000,
     eta: "",
     notes: "",
   },
@@ -100,8 +100,8 @@ export const CHECK_OUT_DUMMY: CheckInReportRow[] = [
     children: 1,
     infants: 0,
     extraPerson: 0,
-    outstandingBalance: 520,
-    totalAmount: 520,
+    outstandingBalance: 5_200_000,
+    totalAmount: 5_200_000,
     eta: "",
     notes: "",
   },
@@ -117,19 +117,17 @@ export const CHECK_OUT_DUMMY: CheckInReportRow[] = [
     children: 0,
     infants: 0,
     extraPerson: 1,
-    outstandingBalance: 890,
-    totalAmount: 890,
+    outstandingBalance: 8_900_000,
+    totalAmount: 8_900_000,
     eta: "",
     notes: "Late checkout requested",
   },
 ];
 
+import { formatCurrency } from "@/lib/metrics";
+
 export function formatEuro(value: number): string {
-  return value.toLocaleString("de-DE", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  });
+  return formatCurrency(value);
 }
 
 export function formatReportDate(iso: string): string {

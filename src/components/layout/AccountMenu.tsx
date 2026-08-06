@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useT } from "@/context/LocaleContext";
 import { useSupportChatPanel } from "@/context/SupportChatContext";
 import { useModal } from "@/hooks/useModal";
 import { ReportErrorModal } from "@/components/support/ReportErrorModal";
 
 export default function AccountMenu() {
   const { user, logout } = useAuth();
+  const t = useT();
   const router = useRouter();
   const { open: openSupportChat } = useSupportChatPanel();
   const [open, setOpen] = useState(false);
@@ -86,7 +88,7 @@ export default function AccountMenu() {
               onClick={handleReport}
               className="menu-dropdown-item menu-dropdown-item-inactive w-full text-left"
             >
-              Report
+              {t("account.report")}
             </button>
 
             <button
@@ -95,7 +97,7 @@ export default function AccountMenu() {
               onClick={handleSupportChat}
               className="menu-dropdown-item menu-dropdown-item-inactive w-full text-left"
             >
-              HMS Support
+              {t("account.support")}
             </button>
 
             <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
@@ -106,7 +108,7 @@ export default function AccountMenu() {
               onClick={handleLogout}
               className="menu-dropdown-item menu-dropdown-item-inactive w-full text-left text-error-600 hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-500/10"
             >
-              Logout
+              {t("account.logout")}
             </button>
           </div>
         )}

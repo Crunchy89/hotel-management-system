@@ -9,6 +9,35 @@ export type ActivityFilters = {
   search: string;
 };
 
+/** Filter option values for the booking-activity kind select. */
+export const ACTIVITY_KIND_OPTION_VALUES: Array<ActivityFilters["kind"]> = [
+  "all",
+  "booking_created",
+  "payment_received",
+  "booking_cancelled",
+  "check_in",
+  "check_out",
+  "room_moved",
+  "key_written",
+  "key_revoked",
+];
+
+/**
+ * English labels for CSV export and local search matching.
+ * UI should display kinds via `t(\`activity.${kind}\`)` (and `t("activity.all")`).
+ */
+export const ACTIVITY_KIND_LABELS: Record<BookingActivityKind, string> = {
+  booking_created: "New booking",
+  payment_received: "Payment received",
+  booking_cancelled: "Cancelled",
+  check_in: "Check-in",
+  check_out: "Check-out",
+  room_moved: "Room move",
+  key_written: "Key encoded",
+  key_revoked: "Key revoked",
+};
+
+/** @deprecated Prefer ACTIVITY_KIND_OPTION_VALUES + t(`activity.${value}`) in UI. */
 export const ACTIVITY_KIND_OPTIONS: Array<{
   value: ActivityFilters["kind"];
   label: string;
@@ -23,17 +52,6 @@ export const ACTIVITY_KIND_OPTIONS: Array<{
   { value: "key_written", label: "Key encoded" },
   { value: "key_revoked", label: "Key revoked" },
 ];
-
-export const ACTIVITY_KIND_LABELS: Record<BookingActivityKind, string> = {
-  booking_created: "New booking",
-  payment_received: "Payment received",
-  booking_cancelled: "Cancelled",
-  check_in: "Check-in",
-  check_out: "Check-out",
-  room_moved: "Room move",
-  key_written: "Key encoded",
-  key_revoked: "Key revoked",
-};
 
 export function defaultActivityFilters(today: string): ActivityFilters {
   const from = new Date(`${today}T00:00:00Z`);

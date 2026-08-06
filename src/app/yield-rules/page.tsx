@@ -43,6 +43,7 @@ import type {
   YieldRuleType,
 } from "@/lib/types";
 import { useHotelData } from "@/lib/useHotelData";
+import { useT } from "@/context/LocaleContext";
 
 const emptyForm: CreateYieldRuleInput = {
   name: "",
@@ -80,6 +81,7 @@ function StatusToggle({
 }
 
 export default function YieldRulesPage() {
+  const t = useT();
   const { yield_rules, room_types, error, mutate } = useHotelData();
 
   const [typeFilter, setTypeFilter] = useState("all");
@@ -157,8 +159,8 @@ export default function YieldRulesPage() {
   return (
     <PageShell>
       <PageHeader
-        title="Yield Rules"
-        description="Automate restrictions and pricing by occupancy, date, and room type."
+        title={t("yield.title")}
+        description={t("yield.description")}
         action={
           <Button size="sm" onClick={openCreate}>
             Add rule

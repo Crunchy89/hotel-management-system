@@ -1,4 +1,7 @@
+"use client";
+
 import Badge, { type BadgeColor } from "@/components/ui/badge/Badge";
+import { useT } from "@/context/LocaleContext";
 
 const roomColors: Record<string, BadgeColor> = {
   available: "success",
@@ -18,18 +21,26 @@ function labelize(value: string) {
   return value.replaceAll("_", " ");
 }
 
+function statusLabel(t: (key: string) => string, status: string) {
+  const key = `status.${status}`;
+  const translated = t(key);
+  return translated === key ? labelize(status) : translated;
+}
+
 export function RoomStatusBadge({ status }: { status: string }) {
+  const t = useT();
   return (
     <Badge size="sm" color={roomColors[status] ?? "light"}>
-      <span className="capitalize">{labelize(status)}</span>
+      <span className="capitalize">{statusLabel(t, status)}</span>
     </Badge>
   );
 }
 
 export function ReservationStatusBadge({ status }: { status: string }) {
+  const t = useT();
   return (
     <Badge size="sm" color={reservationColors[status] ?? "light"}>
-      <span className="capitalize">{labelize(status)}</span>
+      <span className="capitalize">{statusLabel(t, status)}</span>
     </Badge>
   );
 }
