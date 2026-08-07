@@ -434,3 +434,45 @@ export interface MoveReservationRoomInput {
   id: string;
   room_id: string;
 }
+
+export type HotelServiceCategory =
+  | "room_service"
+  | "spa"
+  | "laundry"
+  | "transfer"
+  | "dining"
+  | "other";
+
+/** Extra services the hotel offers guests (shown on the mobile guest app). */
+export interface HotelService {
+  id: string;
+  name: string;
+  description: string;
+  category: HotelServiceCategory;
+  /** Price in IDR; 0 means complimentary. */
+  price: number;
+  /** When true, the service appears on the mobile guest catalog. */
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateHotelServiceInput {
+  name: string;
+  description?: string;
+  category: HotelServiceCategory;
+  price: number;
+  active?: boolean;
+  sort_order?: number;
+}
+
+export interface UpdateHotelServiceInput {
+  id: string;
+  name: string;
+  description?: string;
+  category: HotelServiceCategory;
+  price: number;
+  active: boolean;
+  sort_order?: number;
+}

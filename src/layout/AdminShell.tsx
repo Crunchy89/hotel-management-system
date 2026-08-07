@@ -21,14 +21,15 @@ export default function AdminShell({
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   const isLoginPage = pathname.startsWith("/login");
+  const isMobileGuestPage = pathname.startsWith("/m/");
 
   useEffect(() => {
-    if (!isAuthenticated && !isLoginPage) {
+    if (!isAuthenticated && !isLoginPage && !isMobileGuestPage) {
       router.replace("/login");
     }
-  }, [isAuthenticated, isLoginPage, router]);
+  }, [isAuthenticated, isLoginPage, isMobileGuestPage, router]);
 
-  if (isLoginPage) {
+  if (isLoginPage || isMobileGuestPage) {
     return <>{children}</>;
   }
 

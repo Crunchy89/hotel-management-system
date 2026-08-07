@@ -20,6 +20,7 @@ export const TOP_NAV_ITEMS: NavItem[] = [
   { labelKey: "nav.guestMessages", path: "/messages" },
   { labelKey: "nav.clientChat", path: "/chat" },
   { labelKey: "nav.housekeeping", path: "/housekeeping" },
+  { labelKey: "nav.hotelServices", path: "/services" },
 ];
 
 export const NAV_SECTIONS: NavSection[] = [
@@ -59,6 +60,8 @@ export const ROUTE_LABEL_KEYS: Record<string, string> = {
   "/booking-activity": "nav.bookingActivity",
   "/check-in": "nav.checkIn",
   "/login": "login.title",
+  "/services": "nav.hotelServices",
+  "/m/services": "nav.hotelServices",
 };
 
 export function isActivePath(pathname: string, path: string): boolean {
@@ -100,6 +103,9 @@ export function routeSectionKey(pathname: string): string {
   if (pathname.startsWith("/messages")) return "nav.guestMessages";
   if (pathname.startsWith("/chat")) return "nav.clientChat";
   if (pathname.startsWith("/housekeeping")) return "nav.housekeeping";
+  if (pathname.startsWith("/services") || pathname.startsWith("/m/services")) {
+    return "nav.hotelServices";
+  }
   if (pathname.startsWith("/check-in") || pathname.startsWith("/booking-activity")) {
     return "nav.report";
   }

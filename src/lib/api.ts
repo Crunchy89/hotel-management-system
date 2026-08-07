@@ -35,6 +35,9 @@ import type {
   KeyCard,
   MoveReservationRoomInput,
   WriteKeyCardInput,
+  HotelService,
+  CreateHotelServiceInput,
+  UpdateHotelServiceInput,
 } from "@/lib/types";
 
 function asPromise<T>(fn: () => T): Promise<T> {
@@ -143,6 +146,16 @@ export const api = {
     asPromise(() => store.getDashboardStats()),
   listBookingActivities: (): Promise<BookingActivity[]> =>
     asPromise(() => store.listBookingActivities()),
+  listHotelServices: (activeOnly?: boolean): Promise<HotelService[]> =>
+    asPromise(() => store.listHotelServices(activeOnly)),
+  createHotelService: (input: CreateHotelServiceInput): Promise<HotelService> =>
+    asPromise(() => store.createHotelService(input)),
+  updateHotelService: (input: UpdateHotelServiceInput): Promise<HotelService> =>
+    asPromise(() => store.updateHotelService(input)),
+  deleteHotelService: (id: string): Promise<void> =>
+    asPromise(() => store.deleteHotelService(id)),
+  toggleHotelService: (id: string): Promise<HotelService> =>
+    asPromise(() => store.toggleHotelService(id)),
 };
 
 export function formatError(err: unknown): string {

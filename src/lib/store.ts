@@ -38,6 +38,10 @@ import type {
   KeyCard,
   MoveReservationRoomInput,
   WriteKeyCardInput,
+  HotelService,
+  HotelServiceCategory,
+  CreateHotelServiceInput,
+  UpdateHotelServiceInput,
 } from "@/lib/types";
 import { folioBalance, folioPaymentsNet, stayTotal } from "@/lib/folio";
 import { renderMessageTemplate } from "@/lib/messaging";
@@ -59,6 +63,7 @@ type StoreData = {
   guest_messages: GuestMessage[];
   booking_activities: BookingActivity[];
   key_cards: KeyCard[];
+  hotel_services: HotelService[];
 };
 
 const PACKAGE_TEMPLATES: Array<{
@@ -288,6 +293,7 @@ function normalizeData(raw: Partial<StoreData>): StoreData {
     guest_messages: raw.guest_messages ?? [],
     booking_activities: raw.booking_activities ?? [],
     key_cards: raw.key_cards ?? [],
+    hotel_services: raw.hotel_services ?? [],
   };
 }
 
@@ -478,6 +484,7 @@ function ensureAll(data: StoreData): void {
   ensureChannelRateEntries(data);
   ensureReservationPayments(data);
   ensureBookingActivities(data);
+  ensureHotelServices(data);
 }
 
 const OTA_SOURCES = new Set(["Booking.com", "Expedia", "Agoda"]);
@@ -945,6 +952,7 @@ function seedData(): StoreData {
     guest_messages: [],
     booking_activities: [],
     key_cards: [],
+    hotel_services: [],
   };
   ensureAll(data);
   return data;
@@ -965,6 +973,7 @@ const EMPTY_DATA: StoreData = {
   guest_messages: [],
   booking_activities: [],
   key_cards: [],
+  hotel_services: [],
 };
 
 /**
@@ -1768,6 +1777,181 @@ export function revokeKeyCard(id: string): KeyCard {
   });
 }
 
+const HOTEL_SERVICE_CATEGORIES = new Set<HotelServiceCategory>([
+  "room_service",
+  "spa",
+  "laundry",
+  "transfer",
+  "dining",
+  "other",
+]);
+
+function seedHotelServices(): HotelService[] {
+  const now = new Date().toISOString();
+  const rows: Array<
+    [string, string, HotelServiceCategory, number, boolean]
+  > = [
+    [
+      "Room service breakfast",
+      "Continental breakfast delivered to your room (07:00–10:30).",
+      "room_service",
+      185_000,
+      true,
+    ],
+    [
+      "Late-night snack tray",
+      "Light bites and soft drinks, available until midnight.",
+      "room_service",
+      95_000,
+      true,
+    ],
+    [
+      "Spa massage 60 min",
+      "Full-body massage at the hotel spa. Book ahead for evening slots.",
+      "spa",
+      450_000,
+      true,
+    ],
+    [
+      "Laundry express",
+      "Same-day wash and press for up to 5 garments.",
+      "laundry",
+      120_000,
+      true,
+    ],
+    [
+      "Airport transfer",
+      "Private car to/from the airport. Meet at the lobby.",
+      "transfer",
+      350_000,
+      true,
+    ],
+    [
+      "Restaurant dinner set",
+      "Three-course dinner at the hotel restaurant for one guest.",
+      "dining",
+      275_000,
+      true,
+    ],
+  ];
+
+  return rows.map(([name, description, category, price, active], sort_order) => ({
+    id: uid(),
+    name,
+    description,
+    category,
+    price,
+    active,
+    sort_order,
+    created_at: now,
+    updated_at: now,
+  }));
+}
+
+function ensureHotelServices(data: StoreData): void {
+  if (data.hotel_services.length > 0) return;
+  data.hotel_services = seedHotelServices();
+}
+
+function normalizeServiceCategory(value: unknown): HotelServiceCategory {
+  return typeof value === "string" &&
+    HOTEL_SERVICE_CATEGORIES.has(value as HotelServiceCategory)
+    ? (value as HotelServiceCategory)
+    : "other";
+}
+
+export function listHotelServices(activeOnly = false): HotelService[] {
+  const list = [...read().hotel_services].sort(
+    (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name),
+  );
+  return activeOnly ? list.filter((s) => s.active) : list;
+}
+
+export function createHotelService(
+  input: CreateHotelServiceInput,
+): HotelService {
+  const name = input.name.trim();
+  if (!name) throw new Error("service name is required");
+  const category = normalizeServiceCategory(input.category);
+  const price = Number(input.price);
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error("price must be zero or more");
+  }
+
+  return withData((data) => {
+    const now = new Date().toISOString();
+    const sort_order =
+      input.sort_order ??
+      (data.hotel_services.length > 0
+        ? Math.max(...data.hotel_services.map((s) => s.sort_order)) + 1
+        : 0);
+    const record: HotelService = {
+      id: uid(),
+      name,
+      description: (input.description ?? "").trim(),
+      category,
+      price,
+      active: input.active ?? true,
+      sort_order,
+      created_at: now,
+      updated_at: now,
+    };
+    data.hotel_services.push(record);
+    return { ...record };
+  });
+}
+
+export function updateHotelService(
+  input: UpdateHotelServiceInput,
+): HotelService {
+  if (!input.id) throw new Error("service id is required");
+  const name = input.name.trim();
+  if (!name) throw new Error("service name is required");
+  const price = Number(input.price);
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error("price must be zero or more");
+  }
+
+  return withData((data) => {
+    const idx = data.hotel_services.findIndex((s) => s.id === input.id);
+    if (idx < 0) throw new Error("service not found");
+    const current = data.hotel_services[idx]!;
+    const record: HotelService = {
+      ...current,
+      name,
+      description: (input.description ?? "").trim(),
+      category: normalizeServiceCategory(input.category),
+      price,
+      active: Boolean(input.active),
+      sort_order: input.sort_order ?? current.sort_order,
+      updated_at: new Date().toISOString(),
+    };
+    data.hotel_services[idx] = record;
+    return { ...record };
+  });
+}
+
+export function deleteHotelService(id: string): void {
+  if (!id) throw new Error("service id is required");
+  withData((data) => {
+    if (!data.hotel_services.some((s) => s.id === id)) {
+      throw new Error("service not found");
+    }
+    data.hotel_services = data.hotel_services.filter((s) => s.id !== id);
+  });
+}
+
+export function toggleHotelService(id: string): HotelService {
+  if (!id) throw new Error("service id is required");
+  return withData((data) => {
+    const record = data.hotel_services.find((s) => s.id === id);
+    if (!record) throw new Error("service not found");
+    record.active = !record.active;
+    record.updated_at = new Date().toISOString();
+    return { ...record };
+  });
+}
+
 function syncAmountPaid(data: StoreData, reservationId: string) {
   const reservation = data.reservations.find((r) => r.id === reservationId);
   if (!reservation) return;
@@ -2405,6 +2589,7 @@ type Snapshot = {
   guest_messages: GuestMessage[];
   booking_activities: BookingActivity[];
   key_cards: KeyCard[];
+  hotel_services: HotelService[];
   stats: DashboardStats;
 };
 
@@ -2423,6 +2608,7 @@ const EMPTY_SNAPSHOT: Snapshot = {
   guest_messages: [],
   booking_activities: [],
   key_cards: [],
+  hotel_services: [],
   stats: {
     available_rooms: 0,
     occupied_rooms: 0,
@@ -2455,6 +2641,7 @@ export function getSnapshot(): Snapshot {
       guest_messages: listGuestMessages(),
       booking_activities: listBookingActivities(),
       key_cards: listKeyCards(),
+      hotel_services: listHotelServices(),
       stats: getDashboardStats(),
     };
     snapshotVersion = version;
